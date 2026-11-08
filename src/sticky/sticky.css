@@ -1,0 +1,185 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 스티키 창의 기본 토큰. `/` 메뉴처럼 body에 붙는 팝오버가 쓴다 (BUG-44) */
+:root {
+  --pane: #ffffff;
+  --text: #1d1d1f;
+  --text-3: #8e8e93;
+  --hairline: rgba(0, 0, 0, 0.12);
+  --accent-soft: rgba(0, 0, 0, 0.08);
+  --hover: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --pane: #2c2c2e;
+    --text: #f2f2f7;
+    --text-3: #98989d;
+    --hairline: rgba(255, 255, 255, 0.14);
+    --accent-soft: rgba(255, 255, 255, 0.14);
+    --hover: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.sticky {
+  --on-accent: #ffffff;
+  --field: rgba(0, 0, 0, 0.06);
+  --accent-soft: rgba(0, 0, 0, 0.08);
+  --text: #1d1d1f;
+  --accent: #6b5600;
+  --text-3: rgba(0, 0, 0, 0.4);
+  --code-bg: rgba(0, 0, 0, 0.07);
+  --hairline: rgba(0, 0, 0, 0.15);
+  --link: #5b4a00;
+  --check-border: rgba(0, 0, 0, 0.35);
+  --ink-1: rgba(0, 0, 0, 0.8);
+  --ink-2: rgba(0, 0, 0, 0.5);
+  --ink-wash: rgba(0, 0, 0, 0.08);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  color: var(--text);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.18);
+}
+
+/* 스티키 색: 본문 / 상단 막대 */
+.sticky.c-yellow { background: #fff6b3; --bar: #ffe97a; --accent: #8a6d00; }
+.sticky.c-pink { background: #ffe0ea; --bar: #ffc4d6; --accent: #b0405f; }
+.sticky.c-blue { background: #dcefff; --bar: #bfe0ff; --accent: #2f6fae; }
+.sticky.c-green { background: #e1f7d8; --bar: #c8efb8; --accent: #3d7f2a; }
+.sticky.c-purple { background: #ece3ff; --bar: #dccbff; --accent: #6a4bb5; }
+
+.sticky-bar {
+  flex: none;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 0 8px;
+  background: var(--bar);
+}
+
+.sticky-bar .grow {
+  flex: 1;
+  align-self: stretch;
+}
+
+.colors {
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.sticky:hover .colors {
+  opacity: 1;
+}
+
+.swatch {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.35);
+}
+
+.swatch.c-yellow { background: #ffd93d; }
+.swatch.c-pink { background: #ff8fb1; }
+.swatch.c-blue { background: #79b8ff; }
+.swatch.c-green { background: #8fd97a; }
+.swatch.c-purple { background: #b79bff; }
+
+.swatch.on {
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55);
+}
+
+.bar-btn {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--ink-2);
+  /* 활성화되지 않은 패널에는 마우스 올림이 오지 않으므로 항상 보이게 둔다 (디자인 v0.3 1.2) */
+  opacity: 0.55;
+  transition: opacity 120ms;
+}
+
+.sticky:hover .bar-btn,
+.bar-btn:hover,
+.bar-btn.on {
+  opacity: 1;
+}
+
+.bar-btn.on {
+  color: var(--ink-1);
+}
+
+.bar-btn:hover {
+  background: var(--ink-wash);
+}
+
+.sticky .editor-host {
+  padding-top: 6px;
+}
+
+.bar-warn {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bar-ro {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--ink-wash);
+  color: var(--ink-2);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* ── 다크 모드 (디자인 v0.3 1.1): 종이 색을 어둡게 누르고 글자를 밝게 ── */
+@media (prefers-color-scheme: dark) {
+  .sticky {
+    --on-accent: #1d1d1f; /* 다크 스티키의 강조 색은 밝으므로 체크 표시는 어둡게 (BUG-43) */
+    --field: rgba(255, 255, 255, 0.08);
+    --accent-soft: rgba(255, 255, 255, 0.12);
+    --text: #f2f2f7;
+    --text-3: rgba(255, 255, 255, 0.45);
+    --code-bg: rgba(255, 255, 255, 0.1);
+    --hairline: rgba(255, 255, 255, 0.18);
+    --check-border: rgba(255, 255, 255, 0.4);
+    --ink-1: rgba(255, 255, 255, 0.9);
+    --ink-2: rgba(255, 255, 255, 0.6);
+    --ink-wash: rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.14);
+  }
+  .sticky.c-yellow { background: #4a4220; --bar: #5c5226; --accent: #f5d55a; --link: #f5d55a; }
+  .sticky.c-pink { background: #4d2a36; --bar: #5f3344; --accent: #ff9cbc; --link: #ff9cbc; }
+  .sticky.c-blue { background: #20384f; --bar: #294763; --accent: #8cc4ff; --link: #8cc4ff; }
+  .sticky.c-green { background: #263f23; --bar: #304e2b; --accent: #9ee08b; --link: #9ee08b; }
+  .sticky.c-purple { background: #382c54; --bar: #463868; --accent: #c4adff; --link: #c4adff; }
+  .swatch { box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.35); }
+  .swatch.on { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.7); }
+}
