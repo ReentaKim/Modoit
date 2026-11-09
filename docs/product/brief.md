@@ -197,7 +197,7 @@ Modoit은 사용 데이터를 수집하거나 전송하지 않는다(3.5). 그�
 | 카드 | 요구사항 | Must | Should |
 |---|---|---|---|
 | [F-01 저장 폴더](features/F-01-vault.md) | FR-01, 02, 03 | 2 | 1 |
-| [F-02 메인 창](features/F-02-main-window.md) | FR-04, 25, 42 | 3 | |
+| [F-02 메인 창](features/F-02-main-window.md) | FR-04, 25, 42, 53 | 4 | |
 | [F-03 사이드바·폴더](features/F-03-sidebar.md) | FR-26, 27, 28, 29 | 4 | |
 | [F-04 메모 목록](features/F-04-note-list.md) | FR-05, 35, 36, 39, 47 | 4 | 1 |
 | [F-05 메모 만들기·제목·삭제](features/F-05-note-lifecycle.md) | FR-06, 08, 09, 10 | 3 | 1 |
@@ -208,7 +208,7 @@ Modoit은 사용 데이터를 수집하거나 전송하지 않는다(3.5). 그�
 | [F-10 설정](features/F-10-settings.md) | FR-24, 45, 46 | 3 | |
 | [F-11 메뉴·단축키](features/F-11-menu.md) | FR-37, 41 | 2 | |
 | [F-12 종료](features/F-12-quit.md) | NFR-13 (종료) | — | |
-| **합계** | | **40** | **5** |
+| **합계** | | **41** | **5** |
 
 Could: 없음. Won't는 4.3.
 
