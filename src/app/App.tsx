@@ -17,7 +17,7 @@ import {
 } from "../lib/api";
 import { DEFAULT_STICKY } from "../lib/frontmatter";
 import { applyPrefs } from "../lib/prefs";
-import { applyMove, discardUnder, flushAll, flushAndResolve, onBackgroundFailures, unsavedCount } from "../lib/noteSession";
+import { applyMove, discardUnder, flushAll, flushAndResolve, flushForQuit, onBackgroundFailures, unsavedCount } from "../lib/noteSession";
 import { childrenOf, customSequence, itemKey, reorder, removeKey } from "../lib/sidebar";
 import { Sidebar, ALL, type SidebarActions } from "./Sidebar";
 import { NoteList } from "./NoteList";
@@ -232,7 +232,13 @@ function Workspace({ vault, prefs, updatePrefs, onChangeVault }: WorkspaceProps)
           setQuery("");
           setSelected(p);
         }),
-        on.willQuit(() => void flushAll()),
+        on.willQuit(() => void flushForQuit()),
+        on.quitCancelled((n) => {
+          // 일반 안내보다 오래 보인다
+          const msg = `저장하지 못한 메모 ${n}개가 있어 종료를 멈췄습니다. 한 번 더 종료하면 저장하지 않고 끝냅니다.`;
+          setNotice(msg);
+          window.setTimeout(() => setNotice((m) => (m === msg ? null : m)), 10_000);
+        }),
       ]),
     [refresh],
   );

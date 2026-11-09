@@ -6,7 +6,7 @@ import { ackPutBack, api, on, unlistenAll, folderOf, patchMeta, refusePutBack } 
 import { DEFAULT_STICKY, readMeta, splitNote, STICKY_COLORS, type StickyMeta } from "../lib/frontmatter";
 import { applyPrefs } from "../lib/prefs";
 import { unsupportedFeatures } from "../editor/editability";
-import { applyMove, NoteSession } from "../lib/noteSession";
+import { applyMove, flushForQuit, NoteSession } from "../lib/noteSession";
 import { ModoitEditor } from "../editor/ModoitEditor";
 import "./sticky.css";
 
@@ -120,7 +120,7 @@ export function StickyApp({ path: initialPath, fresh = false }: { path: string; 
         if (before !== after && folderOf(before) !== folderOf(after)) void reload(true);
       }),
       on.prefsChanged(applyPrefs),
-      on.willQuit(() => void sessionRef.current?.flush()),
+      on.willQuit(() => void flushForQuit()),
       on.putBackCancel((p) => {
         if (p === (sessionRef.current?.path ?? initialPath)) cancelAt.current = Date.now();
       }),

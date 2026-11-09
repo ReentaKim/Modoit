@@ -103,6 +103,8 @@ export const api = {
   closeStickyWindow: (path: string) => invoke<void>("close_sticky_window", { path }),
   setStickyOnTop: (path: string, onTop: boolean) => invoke<void>("set_sticky_on_top", { path, onTop }),
   showMain: (path?: string) => invoke<void>("show_main", { path: path ?? null }),
+  /** 종료 전 저장을 끝냈다고 알린다. unsaved: 저장하지 못한 메모 수 (BUG-35) */
+  quitReady: (unsaved: number) => invoke<void>("quit_ready", { unsaved }),
 };
 
 export const on = {
@@ -112,6 +114,8 @@ export const on = {
   menu: (f: (id: string) => void) => listen<string>("menu", (e) => f(e.payload)),
   openNote: (f: (path: string) => void) => listen<{ path: string }>("open-note", (e) => f(e.payload.path)),
   willQuit: (f: () => void) => listen("app-will-quit", () => f()),
+  /** 저장하지 못한 입력이 있어 종료를 멈췄다. payload: 그 메모 수 (BUG-35) */
+  quitCancelled: (f: (unsaved: number) => void) => listen<number>("quit-cancelled", (e) => f(e.payload)),
   /** 메인 창이 스티키 창에 "다시 넣어라 / 스티키 정보를 지워라"를 요청 (FR-44) */
   putBack: (f: (e: PutBack) => void) => listen<PutBack>("sticky-put-back", (e) => f(e.payload)),
   /** 다시 넣기 요청 뒤 사용자가 다시 꺼냈다 — 그 전 요청은 무효 (BUG-48, 49) */

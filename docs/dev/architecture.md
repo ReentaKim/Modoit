@@ -4,7 +4,7 @@
 |---|---|
 | 작성 | 개발 |
 | 최종 수정 | 2026-11-07 |
-| 관련 문서 | [PRD v0.2](../pm/PRD-v0.2.md), [디자인 명세 v0.2](../design/design-spec-v0.2.md), [인터페이스 계약 v0.2](api-v0.2.md) |
+| 관련 문서 | [PRD v0.2](../archive/v0.x/pm/PRD-v0.2.md), [디자인 명세 v0.2](../archive/v0.x/design/design-spec-v0.2.md), [인터페이스 계약 v0.2](../archive/v0.x/dev/api-v0.2.md) |
 | 이전 판 | v0.1 내용은 git 이력에서 볼 수 있다. v0.2부터 **macOS 전용**이다 |
 
 ## 1. 기술 스택
@@ -33,7 +33,8 @@
                │ invoke (명령 20개)      ▲ 이벤트 6종           │
                ▼                         │                     ▼
 ┌──────────────────────────── Rust (src-tauri/src) ─────────────────────────────────┐
-│ lib.rs     명령, 메뉴 막대, 메인 창 숨기기·Reopen, ⌘Q 저장 후 종료, 에셋 범위       │
+│ lib.rs     명령, 메뉴 막대, 메인 창 숨기기·Reopen, 에셋 범위                          │
+│ quit.rs    종료 전 저장(⌘Q·Dock 종료·로그아웃, applicationShouldTerminate)          │
 │ vault.rs   경로 검증, 트리, 제목·파일 이름 규칙, frontmatter 판독, 이동+링크 재작성, │
 │            첨부 저장, 원자적 쓰기                                                   │
 │ layout.rs  .modoit/layout.json (사이드바 순서·구분선·정렬)                          │
@@ -95,9 +96,12 @@
   - accept_first_mouse
 - 메뉴 막대: 메뉴를 고르면 `menu` 이벤트(id)를 보낸다. accelerator를 쓰므로 한글 입력 상태에서도 단축키가 동작한다(BUG-13, 20).
 - 메인 창 닫기는 숨기기다. Dock 아이콘(Reopen)이나 ⌘0으로 다시 보인다.
-- ⌘Q
-  - 직접 만든 quit 항목 → `app-will-quit` 이벤트 → 700ms 뒤 종료
-  - 한계: Dock 우클릭 "종료"와 로그아웃은 이 경로를 거치지 않는다.
+- 종료 전 저장 (v0.4, BUG-35. `quit.rs`)
+  - ⌘Q, Dock "종료", 로그아웃·재시동, AppleScript `quit`은 모두 NSApp `terminate:`로 들어온다. ⌘Q 메뉴 항목도 `terminate:`를 부른다. 단, 메뉴 처리(tao 이벤트 처리) 안에서 바로 부르면 저장 완료 응답이 실행되지 못해 멈추므로 다음 런 루프로 미뤄 부른다(MC-02).
+  - tao 앱 delegate에 없는 `applicationShouldTerminate:`를 시작할 때 붙여 `NSTerminateLater`로 답한다.
+  - 모든 창에 `app-will-quit` → 창마다 저장 후 `quit_ready(unsaved)` → 모두 답하면 `replyToApplicationShouldTerminate:`
+  - 저장하지 못한 입력이 있으면 한 번은 종료를 멈추고(`quit-cancelled`), 다시 종료하면 끝낸다. 답하지 않는 창은 4초까지 기다린다.
+  - 강제 종료(⌥⌘⎋ "강제 종료", 전원 차단)는 앱이 알 수 없으므로 0.5초 지연 저장 안의 입력은 잃을 수 있다.
 
 ## 4. 보안
 - 모든 파일 경로는 `vault::resolve`에서 검증한다. 절대 경로, `..`, 심볼릭 링크로 밖을 가리키는 경로를 차단한다.

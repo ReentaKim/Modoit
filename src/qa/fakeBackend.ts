@@ -206,6 +206,7 @@ export class FakeBackend {
         return null;
       case "set_sticky_on_top":
       case "show_main":
+      case "quit_ready":
       case "rename_folder":
       case "trash_folder":
         return null;

@@ -174,6 +174,13 @@ export function flushAll(): Promise<void> {
   return Promise.all([...registry].map((s) => s.flush())).then(() => {});
 }
 
+/** 종료 직전: 이 창의 모든 메모를 저장하고 Rust에 알린다 (BUG-35).
+ *  하나가 실패해도 나머지는 끝까지 저장하고, 저장하지 못한 수를 함께 보낸다 */
+export async function flushForQuit(): Promise<void> {
+  await Promise.allSettled([...registry].map((s) => s.flush()));
+  await api.quitReady(unsavedCount());
+}
+
 /** 아직 저장하지 못한 입력이 있는 세션 수 */
 export function unsavedCount(): number {
   return [...registry].filter((s) => s.dirty).length;

@@ -2,6 +2,7 @@
 
 mod config;
 mod layout;
+mod quit;
 mod sticky;
 mod vault;
 mod watcher;
@@ -10,13 +11,10 @@ use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent, Wry};
 
 const MAIN: &str = "main";
-/// ⌘Q 뒤 창들이 남은 입력을 저장할 시간(BUG-10)
-const QUIT_GRACE: Duration = Duration::from_millis(700);
 
 pub struct AppState {
     vault: Mutex<Option<PathBuf>>,
@@ -254,6 +252,12 @@ fn show_main(app: AppHandle, path: Option<String>) {
     }
 }
 
+/// 창이 종료 전 저장을 끝냈다. unsaved: 저장하지 못한 메모 수 (BUG-35)
+#[tauri::command]
+fn quit_ready(app: AppHandle, window: tauri::Window, unsaved: u32) {
+    quit::ready(&app, window.label(), unsaved);
+}
+
 // ───────────────────────── 메뉴 막대 (디자인 9장, FR-41) ─────────────────────────
 
 /// 메인 창에서 결과가 보여야 하는 메뉴. 메인 창이 숨어 있으면 먼저 보인다.
@@ -280,7 +284,8 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &PredefinedMenuItem::hide_others(app, Some("기타 가리기"))?,
             &PredefinedMenuItem::show_all(app, Some("모두 보기"))?,
             &sep()?,
-            // 기본 종료(terminate:)는 ExitRequested를 거치지 않아 저장 기회가 없으므로 직접 처리한다
+            // 한글 입력 상태에서도 단축키가 동작하도록 직접 만든 항목. 누르면 terminate:로 보내
+            // Dock 종료·로그아웃과 같은 저장 경로(quit.rs)를 탄다
             &item("quit", "Modoit 종료", Some("CmdOrCtrl+Q"))?,
         ],
     )?;
@@ -357,7 +362,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
 fn on_menu(app: &AppHandle, id: &str) {
     match id {
-        "quit" => app.exit(0),
+        "quit" => quit::request(),
         "show-main" => show_main_window(app),
         // 모양은 Rust가 바로 적용한다. 숨은 메인 창의 스크립트가 늦어도 화면은 즉시 바뀐다 (OBS-11).
         // 설정 저장은 메인 창이 이어서 한다(같은 값으로 한 번 더 적용될 뿐이다)
@@ -406,17 +411,11 @@ fn on_run_event(app: &AppHandle, event: RunEvent) {
     match event {
         // 독 아이콘을 누르면 메인 창을 다시 보인다(FR-42, BUG-11)
         RunEvent::Reopen { .. } => show_main_window(app),
-        // 처음 종료 요청은 막고 창들에 저장을 맡긴 뒤 잠시 후 종료한다(BUG-10)
+        // app.exit() 같은 다른 종료 경로도 저장을 거치게 한다 (quit.rs)
         RunEvent::ExitRequested { api, .. } => {
-            let state = app.state::<AppState>();
-            if !state.quitting.swap(true, Ordering::SeqCst) {
+            if !quit::is_approved() {
                 api.prevent_exit();
-                let _ = app.emit("app-will-quit", ());
-                let app = app.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(QUIT_GRACE);
-                    app.exit(0);
-                });
+                let _ = app.run_on_main_thread(quit::request);
             }
         }
         _ => {}
@@ -446,6 +445,7 @@ pub fn run() {
             }
             config::apply_theme(&handle, &cfg.prefs);
             *state.config.lock().unwrap() = cfg;
+            quit::install(&handle);
             app.set_menu(build_menu(&handle)?)?;
             app.on_menu_event(|app, event| on_menu(app, event.id().as_ref()));
             if let Some(main) = app.get_webview_window(MAIN) {
@@ -477,6 +477,7 @@ pub fn run() {
             close_sticky_window,
             set_sticky_on_top,
             show_main,
+            quit_ready,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
