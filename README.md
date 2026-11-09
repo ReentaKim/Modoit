@@ -208,14 +208,15 @@ src-tauri/src/
 
 ## 📚 개발 문서
 
-PM · 디자인 · 개발 · QA 역할을 나눠, 버전마다 문서를 남기며 만들고 있습니다. → [`docs/`](docs/README.md)
+AI가 초안을 쓰고 사람이 검토·결정하는 방식으로, 필요한 산출물만 살아 있는 문서로 관리합니다. → [`docs/`](docs/README.md) · [운영 모델](docs/operating-model.md)
 
-| 역할 | 문서 |
+| 알고 싶은 것 | 문서 |
 |---|---|
-| PM | [PRD v0.3](docs/pm/PRD-v0.3.md) · [v0.2](docs/pm/PRD-v0.2.md) · [v0.1](docs/pm/PRD-v0.1.md) |
-| 디자인 | [디자인 명세 v0.3](docs/design/design-spec-v0.3.md) · [v0.2](docs/design/design-spec-v0.2.md) · [v0.1](docs/design/design-spec-v0.1.md) |
-| 개발 | [아키텍처](docs/dev/architecture.md) · [인터페이스 계약 v0.3](docs/dev/api-v0.3.md) |
-| QA | [테스트 보고서 v0.3](docs/qa/test-report-v0.3.md) · [테스트 계획 v0.3](docs/qa/test-plan-v0.3.md) |
+| 제품 사양 (문제·정책·요구사항·마일스톤) | [Brief](docs/product/brief.md) |
+| 결정과 이유 | [결정 기록](docs/decisions.md) |
+| 기능별 명세 | [기능 카드](docs/product/features/) |
+| 구조 | [아키텍처](docs/dev/architecture.md) · [v2 아키텍처](docs/dev/architecture-v2.md) |
+| v0.x 문서 (PRD, 디자인 명세, QA 보고서) | [보관](docs/archive/v0.x/) |
 
 ## 🗺 버전 기록
 

@@ -7,7 +7,7 @@
 | 작성 | QA |
 | 작성일 | 2026-11-07 |
 | 검증 기준 | [PRD v0.1](../pm/PRD-v0.1.md) FR-01 ~ FR-22, NFR-01 ~ NFR-07 |
-| 참고 | [디자인 명세 v0.1](../design/design-spec-v0.1.md), [아키텍처 v0.1](../dev/architecture.md) |
+| 참고 | [디자인 명세 v0.1](../design/design-spec-v0.1.md), [아키텍처 v0.1](../../../dev/architecture.md) |
 | 결과 보고 | [test-report-v0.1.md](test-report-v0.1.md) |
 
 ## 1. 목적과 원칙

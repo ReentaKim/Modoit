@@ -6,7 +6,7 @@
 | 버전 | v0.3 (v0.2 결함 재검증 포함) |
 | 작성 | QA |
 | 작성일 | 2026-11-07 |
-| 기준 문서 | [PRD v0.3](../pm/PRD-v0.3.md) (FR-45~50, NFR-14~15, FR-31 개정), [PRD v0.2 9장](../pm/PRD-v0.2.md) (v0.2 결함 처리, BUG-38), [API 계약 v0.3](../dev/api-v0.3.md), [아키텍처 ADR-12~15](../dev/architecture.md), [디자인 v0.3](../design/design-spec-v0.3.md) |
+| 기준 문서 | [PRD v0.3](../pm/PRD-v0.3.md) (FR-45~50, NFR-14~15, FR-31 개정), [PRD v0.2 9장](../pm/PRD-v0.2.md) (v0.2 결함 처리, BUG-38), [API 계약 v0.3](../dev/api-v0.3.md), [아키텍처 ADR-12~15](../../../dev/architecture.md), [디자인 v0.3](../design/design-spec-v0.3.md) |
 | 이전 QA | [test-plan-v0.2.md](test-plan-v0.2.md), [test-report-v0.2.md](test-report-v0.2.md) |
 | 결과 | [test-report-v0.3.md](test-report-v0.3.md) |
 

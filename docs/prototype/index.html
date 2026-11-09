@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modoit v2 프로토타입</title>
+<!--
+  Modoit v2 프로토타입 = IA(화면 지도) + 와이어프레임 + 화면설계서.
+  산출물 운영 모델(docs/operating-model.md) 원칙 7. 저충실도: 배치와 동작만 정한다.
+  색·크기·글꼴은 디자인 토큰(Brief 마일스톤 M3)에서 정한다.
+  고칠 때: 화면 하나 = <section class="screen">. 번호 설명은 그 아래 표. 근거 열에는 기능 카드 ID를 적는다.
+-->
+<style>
+:root{
+  --bg:#f4f4f2; --paper:#ffffff; --ink:#1d1d1f; --sub:#6e6e73; --line:#d2d2d7; --soft:#ececec;
+  --mark:#e0a800; --mark-ink:#1d1d1f; --frame:#fbfbfa; --sel:#fff1bf; --warn:#fff4e5; --warn-line:#e8b45a;
+  --st-yellow:#fff6b3; --st-pink:#ffd6e3; --st-blue:#d6ebff; --st-green:#dff5d3; --st-purple:#e6dcff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#161616; --paper:#1e1e1e; --ink:#f2f2f7; --sub:#a1a1a6; --line:#3a3a3c; --soft:#2a2a2a;
+    --mark:#f5c84a; --mark-ink:#1d1d1f; --frame:#232323; --sel:#4a4220; --warn:#3a2d14; --warn-line:#a57a2a;
+    --st-yellow:#4a4220; --st-pink:#4d2a36; --st-blue:#20384f; --st-green:#263f23; --st-purple:#382c54;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif}
+a{color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
+header.top h1{font-size:26px;margin:0 0 4px}
+header.top p{margin:4px 0;color:var(--sub)}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+.chip{border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:13px;color:var(--sub);background:var(--paper)}
+nav.map{margin:28px 0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px}
+nav.map h2{margin:0 0 10px;font-size:18px}
+.maptree{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.maptree a{display:block;text-decoration:none;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.maptree a:hover{border-color:var(--mark)}
+.maptree b{display:block}
+.maptree small{color:var(--sub)}
+section.screen{margin:40px 0;scroll-margin-top:16px}
+section.screen>h2{font-size:21px;margin:0 0 4px}
+section.screen>p.lead{margin:0 0 12px;color:var(--sub)}
+.states{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.states button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer}
+.states button[aria-pressed="true"]{border-color:var(--mark);box-shadow:inset 0 0 0 1px var(--mark)}
+.stage{overflow-x:auto;padding:4px 0 8px}
+/* 창 틀 */
+.win{background:var(--frame);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.08);overflow:hidden;min-width:880px}
+.titlebar{height:38px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line)}
+.lights{display:flex;gap:7px}
+.lights i{width:12px;height:12px;border-radius:50%;background:var(--line);display:block}
+.tb-btn{width:28px;height:24px;border:1px solid var(--line);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--sub);background:var(--paper)}
+.cols{display:grid;grid-template-columns:220px 280px 1fr;min-height:470px}
+.win.collapsed .cols{grid-template-columns:0 280px 1fr}
+.win.collapsed .side{display:none}
+.side{border-right:1px solid var(--line);padding:10px 8px;display:flex;flex-direction:column;gap:2px;background:var(--soft)}
+.side .row{display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px;font-size:14px}
+.side .row.sel{background:var(--sel)}
+.side .row .n{color:var(--sub);font-size:13px}
+.side .sec{margin-top:12px;font-size:12px;color:var(--sub);padding:0 8px}
+.side .sep{height:1px;background:var(--line);margin:6px 8px}
+.side .vault{margin-top:auto;font-size:13px;color:var(--sub);padding:8px;border-top:1px solid var(--line)}
+.ind{padding-left:22px!important}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;border:1px solid rgba(0,0,0,.15)}
+.list{border-right:1px solid var(--line);background:var(--paper);display:flex;flex-direction:column}
+.list .bar{display:flex;gap:6px;padding:8px;border-bottom:1px solid var(--line)}
+.search{flex:1;border:1px solid var(--line);border-radius:7px;padding:3px 8px;font-size:13px;color:var(--sub)}
+.grp{font-size:12px;font-weight:600;color:var(--sub);padding:10px 12px 2px}
+.note{padding:7px 12px;border-bottom:1px solid var(--soft)}
+.note.sel{background:var(--sel)}
+.note b{display:block;font-size:14px}
+.note span{font-size:13px;color:var(--sub)}
+.ed{background:var(--paper);display:flex;flex-direction:column}
+.ed .bar{display:flex;justify-content:flex-end;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.banner{display:none;margin:10px 16px 0;border:1px solid var(--warn-line);background:var(--warn);border-radius:8px;padding:7px 10px;font-size:13px}
+.banner.on{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.banner u{text-decoration:none;border:1px solid var(--warn-line);border-radius:6px;padding:1px 8px;white-space:nowrap}
+.dates{font-size:12px;color:var(--sub);text-align:center;padding:8px 0 0}
+.body{padding:14px 28px;font-size:16px}
+.body h3{font-size:24px;margin:4px 0 10px}
+.cb{display:flex;gap:8px;align-items:center;margin:3px 0}
+.cb i{width:15px;height:15px;border:1.5px solid var(--sub);border-radius:4px;display:inline-block}
+.cb.done{color:var(--sub);text-decoration:line-through}
+.cb.done i{background:var(--mark);border-color:var(--mark)}
+.tg{margin:10px 0;color:var(--ink)}
+.tg::before{content:"▸ ";color:var(--sub)}
+table.mini{border-collapse:collapse;font-size:13px;margin:8px 0}
+table.mini td{border:1px solid var(--line);padding:3px 10px}
+.toast{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:16px;background:var(--ink);color:var(--paper);font-size:13px;border-radius:8px;padding:8px 12px;max-width:80%}
+.toast.on{display:block}
+.rel{position:relative}
+/* 번호 표시 */
+.m{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:9px;background:var(--mark);color:var(--mark-ink);font:700 11px/1 -apple-system,sans-serif;padding:0 4px;margin:0 3px;vertical-align:middle;flex:none}
+.side>.m,.list>.m{align-self:flex-start}
+/* 설명 표 */
+table.spec{width:100%;border-collapse:collapse;margin-top:14px;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px}
+table.spec th,table.spec td{text-align:left;vertical-align:top;padding:7px 10px;border-bottom:1px solid var(--soft)}
+table.spec th{background:var(--soft);font-weight:600;font-size:13px}
+table.spec td:first-child{width:44px}
+table.spec td:last-child{width:150px;color:var(--sub);font-size:13px}
+/* 스티키 */
+.stickies{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.sticky{width:280px;height:280px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);display:flex;flex-direction:column;overflow:hidden}
+.sticky .sbar{height:30px;display:flex;align-items:center;gap:6px;padding:0 8px;background:rgba(0,0,0,.06)}
+.sticky .sbar .sw{display:flex;gap:4px;margin-right:auto}
+.sticky .sbar .sw i{width:12px;height:12px;border-radius:50%;display:block;border:1px solid rgba(0,0,0,.18)}
+.sticky .sbtn{font-size:12px;opacity:.55}
+.sticky .sbody{padding:10px 14px;font-size:15px}
+.sticky .sbody b{display:block;font-size:17px;margin-bottom:6px}
+.cap{font-size:13px;color:var(--sub);margin-top:8px;text-align:center}
+/* 설정 */
+.settings{width:520px}
+.set-row{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--soft)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg span{padding:3px 12px;font-size:13px;border-right:1px solid var(--line)}
+.seg span:last-child{border-right:0}
+.seg span.on{background:var(--sel)}
+.accents{display:flex;gap:8px}
+.accents i{width:20px;height:20px;border-radius:50%;display:block;background:var(--line)}
+.accents i.on{outline:2px solid var(--ink);outline-offset:2px}
+.field{border:1px solid var(--line);border-radius:7px;padding:3px 10px;font-size:13px;display:inline-block;min-width:160px}
+/* 메뉴 */
+.menubar{display:flex;gap:18px;padding:5px 14px;background:var(--soft);border:1px solid var(--line);border-radius:8px;font-size:14px;width:max-content}
+.menu{margin:6px 0 0 120px;width:300px;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.1);padding:4px 0;font-size:14px}
+.menu div{display:flex;justify-content:space-between;padding:3px 14px}
+.menu hr{border:0;border-top:1px solid var(--soft);margin:4px 0}
+.menu kbd{font:inherit;color:var(--sub)}
+/* 대화상자 */
+.dialogs{display:flex;flex-wrap:wrap;gap:20px}
+.dlg{width:330px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,.1)}
+.dlg b{display:block;margin-bottom:6px}
+.dlg p{margin:0 0 14px;font-size:14px;color:var(--sub)}
+.dlg .btns{display:flex;justify-content:flex-end;gap:8px}
+.dlg .btns span{border:1px solid var(--line);border-radius:7px;padding:3px 12px;font-size:13px}
+.dlg .btns span.pri{background:var(--sel);border-color:var(--mark)}
+.welcome{min-width:0;width:560px;padding:56px 24px;text-align:center;background:var(--paper)}
+.welcome .icon{width:72px;height:72px;border-radius:18px;background:var(--st-yellow);margin:0 auto 14px;border:1px solid var(--line)}
+.btn{display:inline-block;border:1px solid var(--mark);background:var(--sel);border-radius:8px;padding:5px 16px;font-size:14px}
+footer{margin-top:60px;color:var(--sub);font-size:13px}
+@media (max-width:700px){ .welcome,.settings{width:100%} .menu{margin-left:0;width:100%} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Modoit v2 프로토타입</h1>
+  <p>화면 지도(IA), 와이어프레임, 화면설계서를 한 문서로 묶었습니다. 노란 번호는 아래 표의 설명과 짝입니다. 근거 열은 기능 카드와 규칙 번호입니다.</p>
+  <p><b>저충실도</b>입니다. 배치와 동작만 정합니다. 색·크기·글꼴은 디자인 토큰(M3)에서 정합니다.</p>
+  <div class="meta">
+    <span class="chip">상태: 초안</span><span class="chip">담당: 기획 → 디자인 검토</span><span class="chip">최종 수정 2026-11-09</span>
+    <a class="chip" href="../product/brief.md">Brief</a><a class="chip" href="../product/features/">기능 카드</a><a class="chip" href="../decisions.md">결정 기록</a>
+  </div>
+</header>
+
+<nav class="map" aria-label="화면 지도">
+  <h2>화면 지도 (IA)</h2>
+  <div class="maptree">
+    <a href="#scr-01"><b>SCR-01 환영 화면</b><small>저장 폴더가 없을 때 · F-01</small></a>
+    <a href="#scr-02"><b>SCR-02 메인 창</b><small>사이드바 A · 메모 목록 B · 편집기 C · F-02~F-07, F-09</small></a>
+    <a href="#scr-03"><b>SCR-03·04 스티키</b><small>네이티브 / TipTap, 겉모습 같음 · F-08</small></a>
+    <a href="#scr-05"><b>SCR-05 설정</b><small>모양 · 강조 색 · 글꼴 · F-10</small></a>
+    <a href="#scr-06"><b>SCR-06 정보</b><small>버전 · 라이선스 고지 · NFR-11</small></a>
+    <a href="#scr-07"><b>SCR-07 메뉴 막대</b><small>F-11</small></a>
+    <a href="#scr-08"><b>SCR-08 대화상자·안내</b><small>DLG · MSG</small></a>
+  </div>
+  <p style="margin:12px 0 0;color:var(--sub);font-size:13px">흐름(순서도)은 기능 카드 4장에 있습니다: 앱 시작·폴더 변경 <a href="../product/features/F-01-vault.md">F-01</a>, 메모 열기 <a href="../product/features/F-06-editor.md">F-06</a>, 저장·외부 변경 <a href="../product/features/F-07-save-sync.md">F-07</a>, 스티키 <a href="../product/features/F-08-sticky.md">F-08</a>, 종료 <a href="../product/features/F-12-quit.md">F-12</a>.</p>
+</nav>
+
+<!-- SCR-01 -->
+<section class="screen" id="scr-01">
+  <h2>SCR-01 환영 화면</h2>
+  <p class="lead">저장 폴더가 설정에 없거나, 있던 폴더가 사라졌을 때 메인 창 자리에 보입니다.</p>
+  <div class="stage"><div class="win welcome">
+    <div class="icon"></div>
+    <div style="font-size:22px;font-weight:700">Modoit</div>
+    <p style="color:var(--sub);margin:6px 0 20px">메모를 저장할 폴더를 고르세요. 메모는 그 폴더에 .md 파일로 저장됩니다. <span class="m">2</span></p>
+    <span class="btn">저장 폴더 선택 <span class="m">1</span></span>
+  </div></div>
+  <table class="spec"><thead><tr><th>#</th><th>요소 · 동작</th><th>근거</th></tr></thead><tbody>
+    <tr><td><span class="m">1</span></td><td>누르면 macOS 폴더 선택 창. 고르면 빈 폴더나 <code>메모/</code>가 없는 폴더에 <code>메모/</code>를 만들고 메인 창으로 넘어갑니다.</td><td>F-01 FR-01, FR-03</td></tr>
+    <tr><td><span class="m">2</span></td><td>v0.3에서 쓰던 폴더를 고르면 변환 없이 그대로 엽니다. 사용자에게 따로 묻지 않습니다.</td><td>F-01 R-1, Brief 3.6</td></tr>
+  </tbody></table>
+</section>
+
+<!-- SCR-02 -->
+<section class="screen" id="scr-02">
+  <h2>SCR-02 메인 창</h2>
+  <p class="lead">사이드바(A) · 메모 목록(B) · 편집기(C). SwiftUI NavigationSplitView. 아래 버튼으로 상태를 바꿔 볼 수 있습니다.</p>
+  <div class="states" role="group" aria-label="메인 창 상태">
+    <button data-state="normal" aria-pressed="true">기본</button>
+    <button data-state="readonly" aria-pressed="false">읽기 전용 안내</button>
+    <button data-state="savefail" aria-pressed="false">저장 실패 안내</button>
+    <button data-state="quit" aria-pressed="false">종료 멈춤 안내</button>
+    <button data-state="collapsed" aria-pressed="false">사이드바 접힘</button>
+  </div>
+  <div class="stage"><div class="win rel" id="main-win">
+    <div class="titlebar">
+      <div class="lights"><i></i><i></i><i></i></div><span class="m">1</span>
+      <span class="tb-btn" title="사이드바">▤</span><span class="m">2</span>
+    </div>
+    <div class="cols">
+      <aside class="side" aria-label="사이드바">
+        <div class="row sel"><span>모든 메모</span><span class="n">24</span></div><span class="m" style="margin-left:8px">3</span>
+        <div class="row"><span>▾ 메모</span><span class="n">9</span></div>
+        <div class="row ind"><span>회의</span><span class="n">5</span></div>
+        <div class="row"><span>▸ 개인</span><span class="n">6</span></div>
+        <div class="sep"></div><span class="m" style="margin-left:8px">4</span>
+        <div class="row"><span>▸ 프로젝트</span><span class="n">4</span></div>
+        <div class="sec">꺼내 둔 메모 <span class="m">5</span></div>
+        <div class="row"><span><i class="dot" style="background:var(--st-yellow)"></i>오늘 할 일</span></div>
+        <div class="row"><span><i class="dot" style="background:var(--st-blue)"></i>장보기</span></div>
+        <div class="vault">📁 내 메모 <span class="m">6</span></div>
+      </aside>
+      <div class="list" aria-label="메모 목록">
+        <div class="bar"><span class="search">검색 <span class="m">7</span></span><span class="tb-btn">⇅</span><span class="tb-btn">✎</span><span class="m">8</span></div>
+        <div class="grp">고정됨 <span class="m">9</span></div>
+        <div class="note"><b>주간 목표</b><span>11월 3일 · 이번 주 끝낼 것</span></div>
+        <div class="grp">오늘</div>
+        <div class="note sel"><b><i class="dot" style="background:var(--st-yellow)"></i>오늘 할 일</b><span>오후 2:14 · 디자인 검토, 스파이크…</span></div>
+        <div class="note"><b>회의 메모</b><span>오전 10:02 · v2 착수 결정</span></div>
+        <div class="grp">어제</div>
+        <div class="note"><b><i class="dot" style="background:var(--st-blue)"></i>장보기</b><span>어제 · 우유, 빵</span></div>
+        <div class="grp">지난 7일</div>
+        <div class="note"><b>읽을 책</b><span>11월 4일 · …</span></div>
+        <span class="m" style="margin:6px 12px">10</span>
+      </div>
+      <div class="ed" aria-label="편집기">
+        <div class="bar"><span class="tb-btn" title="스티키로 꺼내기·넣기">⧉</span><span class="tb-btn" title="휴지통">🗑</span><span class="m">11</span></div>
+        <div class="banner" id="b-readonly"><span>이 메모에는 Modoit이 지원하지 않는 서식(각주)이 있어 읽기 전용으로 열었습니다.</span><u>그래도 편집</u><span class="m">13</span></div>
+        <div class="banner" id="b-savefail"><span>저장하지 못했습니다 — 다시 시도 중…</span><span class="m">14</span></div>
+        <div class="dates">만든 날 2026년 11월 9일 · 고친 날 오후 2:14 <span class="m">12</span></div>
+        <div class="body">
+          <h3>오늘 할 일</h3>
+          <div class="cb done"><i></i>BUG-35 확인</div>
+          <div class="cb"><i></i>디자인 검토</div>
+          <div class="cb"><i></i>스파이크 저장 결과 비교</div>
+          <div class="tg">참고 링크</div>
+          <table class="mini"><tr><td>항목</td><td>상태</td></tr><tr><td>Brief</td><td>검토 중</td></tr></table>
+          <p style="color:var(--sub);font-size:14px">빈 줄에서 / 를 치면 서식 메뉴 <span class="m">15</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="toast" id="t-quit">저장하지 못한 메모 1개가 있어 종료를 멈췄습니다. 한 번 더 종료하면 저장하지 않고 끝냅니다.</div>
+  </div></div>
+  <table class="spec"><thead><tr><th>#</th><th>요소 · 동작</th><th>근거</th></tr></thead><tbody>
+    <tr><td><span class="m">1</span></td><td>빨간 버튼은 닫기가 아니라 <b>숨기기</b>. 앱과 스티키는 계속 동작. Dock 아이콘, ⌘0, 스티키의 "메인 창에서 열기"로 다시 보임. 숨기기 전에 입력 저장.</td><td>F-02 FR-42, R-1</td></tr>
+    <tr><td><span class="m">2</span></td><td>사이드바 접기·펴기. ⌥⌘S. 상태 기억.</td><td>F-02 FR-25</td></tr>
+    <tr><td><span class="m">3</span></td><td>"모든 메모"는 전체 수, 폴더는 <b>바로 안</b>의 메모 수. 폴더: 펼치기·접기, 우클릭(새 하위 폴더, 이름 변경, 아래에 구분선 추가, 휴지통으로), 끌어 놓기(위 = 안으로, 사이 = 순서).</td><td>F-03 FR-26~28, R-1</td></tr>
+    <tr><td><span class="m">4</span></td><td>구분선. 끌어서 옮기고 우클릭으로 지움. 정렬은 구분선 구역 안에서만.</td><td>F-03 FR-29</td></tr>
+    <tr><td><span class="m">5</span></td><td>꺼내 둔 메모: <b>지금 떠 있는</b> 스티키만, 색 점과 함께. 마우스를 올리면 다시 넣기 버튼. 우클릭: 다시 넣기, 색·위치 기억 지우기.</td><td>F-08 FR-31, FR-44</td></tr>
+    <tr><td><span class="m">6</span></td><td>저장 폴더 이름. 누르면 폴더 변경(저장 못 한 입력이 있으면 DLG-02).</td><td>F-01 FR-02</td></tr>
+    <tr><td><span class="m">7</span></td><td>검색. ⌘F로 커서. 지금 보는 범위에서 제목·미리보기·경로. Esc로 지움.</td><td>F-09</td></tr>
+    <tr><td><span class="m">8</span></td><td>정렬(수정일순·만든 날짜순·이름순), 새 메모(⌘N, 지금 폴더에, 검색어 지움).</td><td>F-04 FR-39, F-05 FR-06</td></tr>
+    <tr><td><span class="m">9</span></td><td>"고정됨" 그룹은 항상 맨 위. 우클릭으로 고정·해제(⌘⇧P).</td><td>F-04 FR-35</td></tr>
+    <tr><td><span class="m">10</span></td><td>날짜 그룹(오늘·어제·지난 7일·지난 30일·연도). 행: 제목, 날짜(정렬 기준을 따름), 미리보기, 떠 있으면 색 점. 행을 사이드바 폴더로 끌면 이동. 우클릭: 고정, 꺼내기·넣기, 색·위치 기억 지우기, 휴지통.</td><td>F-04 FR-05, FR-36, R-2</td></tr>
+    <tr><td><span class="m">11</span></td><td>스티키로 꺼내기 ↔ 다시 넣기 토글(⌘⇧S). 휴지통(시스템 휴지통, 다음 메모 선택).</td><td>F-08 FR-30, F-05 FR-09</td></tr>
+    <tr><td><span class="m">12</span></td><td>만든 날 · 고친 날. 앱이 저장해도 만든 날은 그대로.</td><td>F-04 FR-47</td></tr>
+    <tr><td><span class="m">13</span></td><td>지원하지 않는 서식이 있으면 읽기 전용 안내(MSG-02). "그래도 편집"을 눌러야 편집.</td><td>F-06 FR-43</td></tr>
+    <tr><td><span class="m">14</span></td><td>저장 실패 안내(MSG-01). 3초마다 재시도, 성공하면 사라짐.</td><td>F-07, Brief 3.2-5</td></tr>
+    <tr><td><span class="m">15</span></td><td>본문: 첫 줄이 제목이자 파일 이름. 단축 입력(<code>- </code> <code>[ ] </code> <code># </code> <code>| </code> <code>&gt; </code> …), <code>/</code> 메뉴, 체크박스, 토글, 표, 이미지. TipTap 편집기(앱 내장).</td><td>F-05, F-06</td></tr>
+    <tr><td>—</td><td>"종료 멈춤 안내" 상태: 저장 못 한 메모가 있어 종료를 한 번 멈춤(MSG-04, 10초).</td><td>F-12 R-2</td></tr>
+  </tbody></table>
+</section>
+
+<!-- SCR-03/04 -->
+<section class="screen" id="scr-03">
+  <h2>SCR-03·04 스티키</h2>
+  <p class="lead">왼쪽은 네이티브 편집기(SCR-03), 오른쪽은 표가 있어 TipTap 편집기로 열린 스티키(SCR-04)입니다. <b>사용자 눈에는 같은 스티키</b>여야 합니다.</p>
+  <div class="stage"><div class="stickies">
+    <div>
+      <div class="sticky" style="background:var(--st-yellow)">
+        <div class="sbar"><span class="sw"><i style="background:var(--st-yellow)"></i><i style="background:var(--st-pink)"></i><i style="background:var(--st-blue)"></i><i style="background:var(--st-green)"></i><i style="background:var(--st-purple)"></i></span><span class="m">2</span><span class="sbtn">📌</span><span class="sbtn">↗</span><span class="sbtn">✕</span><span class="m">1</span></div>
+        <div class="sbody"><b>오늘 할 일</b>
+          <div class="cb done"><i></i>BUG-35 확인</div>
+          <div class="cb"><i></i>디자인 검토</div>
+          <div class="cb"><i></i><span><strong>굵게</strong>, <em>기울임</em>, <u>링크</u></span></div>
+          <div style="margin-top:6px">― 인용·구분선도 네이티브 <span class="m">3</span></div>
+        </div>
+      </div>
+      <div class="cap">SCR-03 네이티브</div>
+    </div>
+    <div>
+      <div class="sticky" style="background:var(--st-blue)">
+        <div class="sbar"><span class="sw"></span><span class="sbtn">📌</span><span class="sbtn">↗</span><span class="sbtn">✕</span></div>
+        <div class="sbody"><b>장보기</b>
+          <table class="mini"><tr><td>품목</td><td>수량</td></tr><tr><td>우유</td><td>2</td></tr><tr><td>빵</td><td>1</td></tr></table>
+          <div class="tg">메모</div>
+          <span class="m">4</span>
+        </div>
+      </div>
+      <div class="cap">SCR-04 TipTap (표·토글이 있음)</div>
+    </div>
+  </div></div>
+  <table class="spec"><thead><tr><th>#</th><th>요소 · 동작</th><th>근거</th></tr></thead><tbody>
+    <tr><td><span class="m">1</span></td><td>막대 버튼: 핀(항상 위), ↗ 메인 창에서 열기, ✕ 다시 넣기. 비활성 패널에서도 <b>항상 보임</b>. ✕를 눌러도 저장 못 한 입력이 있으면 넣지 않고 안내(MSG-05). ⌘⇧N으로 만든 빈 스티키만 ✕ 때 휴지통으로.</td><td>F-08 R-5, R-7</td></tr>
+    <tr><td><span class="m">2</span></td><td>색 견본 5개(노랑·분홍·파랑·초록·보라). 마우스를 올릴 때만 보임. 처음 꺼내면 노랑, 280×280.</td><td>F-08 R-4</td></tr>
+    <tr><td><span class="m">3</span></td><td>네이티브가 그리는 서식: 문단, 제목 1~3, 점·번호 목록, 체크박스, 굵게, 기울임, 인용, 구분선, 링크, 인라인 코드, 취소선. 단축 입력 결과는 메인 편집기와 같음. 고친 줄만 다시 씀.</td><td>F-08 3.2, FR-51, R-9 (D-12)</td></tr>
+    <tr><td><span class="m">4</span></td><td>표·토글·코드 블록·이미지가 하나라도 있으면 TipTap으로 엶. 네이티브에서 <code>/</code> 메뉴로 이런 서식을 고르면 입력 저장 후 TipTap으로 바뀌고 커서를 이어 감. 열려 있는 동안 TipTap → 네이티브로는 바꾸지 않음.</td><td>F-08 FR-52, R-10, R-11</td></tr>
+    <tr><td>—</td><td>패널: 눌러도 다른 앱의 포커스를 뺏지 않음. 모든 데스크톱·전체 화면 앱 위. 옮기거나 크기를 바꾸면 멈춘 뒤 한 번 저장. 모니터 밖이면 기본 위치로 복원.</td><td>F-08 FR-40, R-8</td></tr>
+    <tr><td>—</td><td><b>디자인 검토:</b> 두 스티키의 막대, 여백, 글꼴, 체크박스 모양이 같아야 함.</td><td>F-08 R-6</td></tr>
+  </tbody></table>
+</section>
+
+<!-- SCR-05 -->
+<section class="screen" id="scr-05">
+  <h2>SCR-05 설정</h2>
+  <p class="lead">⌘, 또는 앱 메뉴 "설정…". v2는 SwiftUI Settings 창(v0.3은 시트). 바꾸면 바로 적용, 확인 버튼 없음.</p>
+  <div class="stage"><div class="win settings" style="min-width:0">
+    <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div><span style="margin:0 auto;font-size:13px">설정</span></div>
+    <div class="set-row"><span>모양 <span class="m">1</span></span><span class="seg"><span class="on">시스템</span><span>라이트</span><span>다크</span></span></div>
+    <div class="set-row"><span>강조 색 <span class="m">2</span></span><span class="accents"><i class="on" style="background:#e0a800"></i><i style="background:#f08a24"></i><i style="background:#e5484d"></i><i style="background:#e66ba0"></i><i style="background:#8e6bd8"></i><i style="background:#3b82f6"></i><i style="background:#3fa34d"></i><i style="background:#8e8e93"></i></span></div>
+    <div class="set-row"><span>글꼴 <span class="m">3</span></span><span class="field">시스템 기본 ▾</span></div>
+    <div class="set-row"><span>본문 크기 <span class="m">4</span></span><span>14 ━━━━●━━━ 22 &nbsp; <b>17</b></span></div>
+  </div></div>
+  <table class="spec"><thead><tr><th>#</th><th>요소 · 동작</th><th>근거</th></tr></thead><tbody>
+    <tr><td><span class="m">1</span></td><td>시스템 / 라이트 / 다크. 모든 창·스티키·메뉴·대화상자에 바로. 보기 &gt; 모양 메뉴와 같은 설정.</td><td>F-10 FR-45, R-2</td></tr>
+    <tr><td><span class="m">2</span></td><td>강조 색 8가지(노랑 기본). 선택 행, 링크, 체크박스, 버튼, 끌어 놓기 표시, 포커스에 쓰임.</td><td>F-10 FR-46, R-4</td></tr>
+    <tr><td><span class="m">3</span></td><td>시스템 / Pretendard / 명조 / 고정폭 / 직접 입력(공백 포함 가능). 메인과 스티키(두 방식) 모두.</td><td>F-10 FR-24</td></tr>
+    <tr><td><span class="m">4</span></td><td>본문 14~22, 기본 17.</td><td>F-10 FR-24, Brief 3.7</td></tr>
+  </tbody></table>
+</section>
+
+<!-- SCR-06 -->
+<section class="screen" id="scr-06">
+  <h2>SCR-06 정보</h2>
+  <p class="lead">앱 메뉴 "Modoit 정보". 앱 이름, 버전, 외부 구성요소 라이선스 고지(SF Symbols 사용 조건 확인 후 문구 확정).</p>
+  <table class="spec"><thead><tr><th>#</th><th>요소 · 동작</th><th>근거</th></tr></thead><tbody>
+    <tr><td>—</td><td>버전, 저작권, <code>THIRD_PARTY_NOTICES.md</code>와 같은 내용(Pretendard OFL 원문 포함). v2 의존성으로 갱신.</td><td>NFR-11, D-10</td></tr>
+  </tbody></table>
+</section>
+
+<!-- SCR-07 -->
+<section class="screen" id="scr-07">
+  <h2>SCR-07 메뉴 막대</h2>
+  <p class="lead">전체 구성은 <a href="../product/features/F-11-menu.md">F-11</a> 4장. 여기서는 "파일" 메뉴를 예로 듭니다.</p>
+  <div class="stage">
+    <div class="menubar"><b>Modoit</b><span><u>파일</u></span><span>편집</span><span>보기</span><span>창</span><span>도움말</span></div>
+    <div class="menu">
+      <div>새 메모<kbd>⌘N</kbd></div><div>새 스티키 메모<kbd>⇧⌘N</kbd></div><div>새 폴더<kbd>⌥⌘N</kbd></div><hr>
+      <div>스티키로 꺼내기 <span class="m">1</span><kbd>⇧⌘S</kbd></div><div>고정<kbd>⇧⌘P</kbd></div><hr>
+      <div>저장 폴더 변경…<kbd></kbd></div>
+    </div>
+  </div>
+  <table class="spec"><thead><tr><th>#</th><th>요소 · 동작</th><th>근거</th></tr></thead><tbody>
+    <tr><td><span class="m">1</span></td><td>⌘⇧S·⌘⇧P는 <b>메인 창에서 고른 메모</b>에 적용(스티키에 포커스가 있어도). 모든 단축키는 한글 입력 상태에서도 동작.</td><td>F-11 R-2, FR-41</td></tr>
+  </tbody></table>
+</section>
+
+<!-- SCR-08 -->
+<section class="screen" id="scr-08">
+  <h2>SCR-08 대화상자·안내</h2>
+  <p class="lead">문구는 v0.3 앱과 같습니다. 바꾸면 이 화면과 해당 기능 카드를 함께 고칩니다.</p>
+  <div class="stage"><div class="dialogs">
+    <div class="dlg"><b>DLG-01 폴더 삭제</b><p>"프로젝트" 폴더와 안의 메모 4개를 휴지통으로 옮길까요?</p><div class="btns"><span>취소</span><span class="pri">휴지통으로 이동</span></div></div>
+    <div class="dlg"><b>DLG-02 저장 폴더 변경</b><p>저장하지 못한 메모 1개가 있습니다. 바꾸면 그 입력은 사라집니다. 그래도 저장 폴더를 바꿀까요?</p><div class="btns"><span>취소</span><span class="pri">버리고 바꾸기</span></div></div>
+  </div></div>
+  <table class="spec"><thead><tr><th>ID</th><th>언제 · 형태 · 문구</th><th>근거</th></tr></thead><tbody>
+    <tr><td>DLG-01</td><td>메모가 든 폴더 삭제 — 확인 대화상자. 빈 폴더는 묻지 않음.</td><td>F-03 FR-26, Brief 3.3</td></tr>
+    <tr><td>DLG-02</td><td>저장 못 한 입력이 있는데 저장 폴더 변경 — 경고 대화상자(버리고 바꾸기 / 취소).</td><td>F-01 FR-02</td></tr>
+    <tr><td>MSG-01</td><td>저장 실패 — 편집기 위 "저장하지 못했습니다 — 다시 시도 중…"(SCR-02 ⑭). 스티키는 막대에 "!" 표시. 다른 메모로 옮길 때는 "이전 메모를 아직 저장하지 못했습니다. 저장될 때까지 계속 다시 시도합니다."</td><td>F-07</td></tr>
+    <tr><td>MSG-02</td><td>지원하지 않는 서식 — "이 메모에는 Modoit이 지원하지 않는 서식(…)이 있어 읽기 전용으로 열었습니다." + "그래도 편집"(SCR-02 ⑬). 누르면 "편집하면 지원하지 않는 서식은 바뀔 수 있습니다."</td><td>F-06 FR-43</td></tr>
+    <tr><td>MSG-03</td><td>지원하지 않는 인코딩 — 편집기 자리에 "이 파일은 UTF-8이 아닌 인코딩이라 열 수 없습니다."</td><td>F-06 R-6</td></tr>
+    <tr><td>MSG-04</td><td>종료 멈춤 — 메인 창 안내 10초(SCR-02 "종료 멈춤 안내").</td><td>F-12 R-2</td></tr>
+    <tr><td>MSG-05</td><td>스티키를 넣지 못함 — "스티키에 아직 저장하지 못한 입력이 있어 넣지 않았습니다. 저장되면 다시 시도하세요."</td><td>F-08 R-5</td></tr>
+    <tr><td>MSG-06</td><td>이미지 20 MB 초과 — "이미지가 20MB를 넘습니다: 파일 이름"</td><td>F-06 R-5</td></tr>
+    <tr><td>MSG-07</td><td>폴더 이름 거부(빈 이름, 점, 중복) — 입력칸 아래 이유.</td><td>F-03 FR-26</td></tr>
+  </tbody></table>
+</section>
+
+<footer>
+  Modoit v2 프로토타입 · 변경은 git diff로 검토합니다 · 원본 규칙은 기능 카드에 있고, 이 화면은 그 규칙을 가리킵니다.
+</footer>
+</div>
+
+<script>
+// SCR-02 상태 전환: 한 번에 하나의 상태만 보여 준다
+(function(){
+  var win=document.getElementById('main-win');
+  var map={readonly:'b-readonly',savefail:'b-savefail'};
+  var buttons=document.querySelectorAll('#scr-02 .states button');
+  buttons.forEach(function(b){
+    b.addEventListener('click',function(){
+      var st=b.getAttribute('data-state');
+      buttons.forEach(function(x){x.setAttribute('aria-pressed', x===b?'true':'false');});
+      document.getElementById('b-readonly').classList.toggle('on', st==='readonly');
+      document.getElementById('b-savefail').classList.toggle('on', st==='savefail');
+      document.getElementById('t-quit').classList.toggle('on', st==='quit');
+      win.classList.toggle('collapsed', st==='collapsed');
+    });
+  });
+})();
+</script>
+</body>
+</html>
