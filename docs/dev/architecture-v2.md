@@ -71,7 +71,8 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 | Config | `config.json` 읽기·쓰기, 범위 밖 값 보정 | `config.rs`, `prefs.ts` | cargo |
 
 - 옮긴 수는 cargo 45개 + 순수 로직 vitest다. 스파이크에서 13개를 이미 옮겨 통과했다.
-- 주의: Swift는 `\r\n`을 글자 하나로 센다. 줄 단위 코드는 옮길 때마다 테스트로 확인한다(스파이크에서 발견).
+- 주의: Swift는 `\r\n`을 글자 하나로 세고, `==`는 한글의 NFC와 NFD를 같다고 본다. 그래서 코어의 글자 처리는 유니코드 스칼라와 UTF-8 바이트 단위로 한다(`Text.swift`).
+- 주의: 파일 이름의 바이트를 보존한다 → V2-13.
 - TipTap 편집기 자체의 테스트(`src/editor/editor.test.ts`, `src/qa/*Editor*`)는 옮기지 않는다. 편집기 코드가 그대로이므로 vitest로 계속 돌린다.
 
 ### 3.2 편집 세션 — 한 메모에 하나 (V2-09)
@@ -148,6 +149,7 @@ v0.x의 ADR 번호와 겹치지 않게 `V2-`를 붙인다.
 | V2-04 | 스티키는 네이티브 편집기, 어려운 서식만 TipTap | 메모리 이득은 네이티브에서만 난다(스파이크: 1개당 5 MB vs 75~100 MB). D-04, D-12 |
 | V2-05 | NSPanel은 공개 API만 | NFR-19 |
 | V2-06 | 저장 형식·폴더 구조·frontmatter·layout.json·config.json은 v0.x와 같다 | Brief 3.6. 변환 없이 이어 쓰고, 되돌아갈 수도 있다 |
+| V2-13 | 코어는 경로를 `String`으로 다루고, 파일·폴더를 만들거나 이름을 바꿀 때는 POSIX 호출(`open`, `mkdir`, `rename`)을 쓴다. `URL`·`FileManager`의 만들기 API를 쓰지 않는다 (2026-11-10, M5에서 발견) | Foundation의 만들기 API는 한글 이름을 자모로 풀어(NFD) 디스크에 만든다. v0.x(Rust)는 받은 글자 그대로(NFC) 만들고 바이트로 비교한다. 섞이면 `layout.json`의 폴더 순서가 v0.x에서 맞지 않는다(NFR-16). 테스트 `created_names_keep_nfc_bytes` |
 
 ### 5.2 2026-11-10에 정한 것 (D-23)
 | # | 결정 | 이유 | 다른 선택지와 버린 이유 |
@@ -162,7 +164,7 @@ v0.x의 ADR 번호와 겹치지 않게 `V2-`를 붙인다.
 ## 6. 검증 방법
 | 대상 | 방법 |
 |---|---|
-| 코어 규칙 | `swift test --package-path macos` — cargo·vitest에서 옮긴 케이스. 이름에 요구사항·결함 ID 유지 |
+| 코어 규칙 | `swift test --package-path macos` — cargo·vitest에서 옮긴 케이스. 이름에 요구사항·결함 ID 유지. 병합은 v0.x 코드가 낸 결과 400건과 대조(`Fixtures/merge-v0x.json`) |
 | 세션·스티키 관리 | 화면 없이 `ModoitTests`에서(가짜 파일 시스템이 아니라 임시 폴더) |
 | TipTap 편집기 | 기존 vitest 그대로 |
 | 두 편집기의 결과 일치 | 같은 입력 → 네이티브와 TipTap의 Markdown 비교(F-08 A6), 번갈아 고친 뒤 바이트 비교(NFR-21) |

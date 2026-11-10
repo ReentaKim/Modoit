@@ -17,7 +17,7 @@ Modoit은 macOS 메모 앱이다. v0.x는 Tauri 2 + React + TipTap(`src/`, `src-
 `D-xx` 결정 → `FR-xx`·`NFR-xx` 요구사항 → `F-xx` 기능 카드 → `SCR-xx` 화면 → 테스트 이름 → `BUG-xx` 결함. 테스트 이름에 요구사항·결함 ID를 넣는다.
 
 ## 개발
-- 테스트: `npx vitest run`, `cargo test --manifest-path src-tauri/Cargo.toml`, 타입 검사 `npx tsc --noEmit`. v2 코어: `swift test --package-path spike/macos`.
+- 테스트: `npx vitest run`, `cargo test --manifest-path src-tauri/Cargo.toml`, 타입 검사 `npx tsc --noEmit`. v2 코어: `swift test --package-path macos`(스파이크는 `spike/macos`).
 - 데이터 안전이 최우선이다: 열기만 해서는 파일을 쓰지 않는다, 입력을 잃지 않는다, 저장 폴더 밖을 건드리지 않는다(Brief 3장).
 - 브랜치: `main`은 출시된 상태만 둔다(태그 `vX.Y.Z`). 작업은 `develop`에서 하고, 출시 때 `develop` → `main`으로 합친다. 큰 변경은 `develop`에서 브랜치를 따서 끝나면 `develop`에 합친다.
 - 출시된 버전의 긴급 수정은 `main`에서 브랜치를 따서 출시한 뒤 `develop`에도 합친다.
