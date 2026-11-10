@@ -33,6 +33,7 @@ spike/macos/Sources/ModoitSpike/Resources/editor
 macos/.build
 macos/.swiftpm
 macos/build
-macos/Sources/Modoit/Resources/editor
+macos/Sources/Modoit/Resources/editor/*
+!macos/Sources/Modoit/Resources/editor/.gitkeep
 spike/sticky-editor/.build
 spike/sticky-editor/.swiftpm

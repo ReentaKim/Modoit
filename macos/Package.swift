@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .library(name: "ModoitCore", targets: ["ModoitCore"]),
         .library(name: "ModoitKit", targets: ["ModoitKit"]),
+        .executable(name: "Modoit", targets: ["Modoit"]),
     ],
     dependencies: [
         // frontmatter(YAML) 읽기 전용. 쓰기는 파서를 거치지 않는다 (V2-12)
@@ -20,6 +21,12 @@ let package = Package(
         // 화면 없는 앱 로직: 편집 세션, 저장, 스티키 관리. SwiftUI·AppKit 화면 코드는 넣지 않는다
         .target(name: "ModoitKit", dependencies: ["ModoitCore"]),
         .testTarget(name: "ModoitKitTests", dependencies: ["ModoitKit"]),
+        // 앱: 화면(SwiftUI·AppKit)과 편집기 연결. Resources/editor는 editor-host를 빌드한 산출물이다(build-app.sh)
+        .executableTarget(
+            name: "Modoit",
+            dependencies: ["ModoitKit", "ModoitCore"],
+            resources: [.copy("Resources/editor")]
+        ),
         .testTarget(
             name: "ModoitCoreTests",
             dependencies: ["ModoitCore"],

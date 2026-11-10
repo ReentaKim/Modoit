@@ -22,6 +22,19 @@ public struct NoteMeta: Identifiable, Hashable, Sendable {
     public var sticky: StickyMeta?
     /// UTF-8이 아니면 false: 목록에는 보이되 열 수 없다 (BUG-19)
     public var readable: Bool
+
+    public init(path: String, folder: String, title: String, preview: String, modified: UInt64, created: UInt64,
+                pinned: Bool, sticky: StickyMeta?, readable: Bool) {
+        self.path = path
+        self.folder = folder
+        self.title = title
+        self.preview = preview
+        self.modified = modified
+        self.created = created
+        self.pinned = pinned
+        self.sticky = sticky
+        self.readable = readable
+    }
 }
 
 public struct FolderNode: Identifiable, Hashable, Sendable {
@@ -31,12 +44,25 @@ public struct FolderNode: Identifiable, Hashable, Sendable {
     /// 하위 메모의 가장 늦은 수정 시각(ms). 메모가 없으면 폴더 자체의 시각
     public var modified: UInt64
     public var children: [FolderNode]
+
+    public init(path: String, name: String, modified: UInt64, children: [FolderNode]) {
+        self.path = path
+        self.name = name
+        self.modified = modified
+        self.children = children
+    }
 }
 
 public struct Tree: Sendable {
     public var folders: [FolderNode]
     public var notes: [NoteMeta]
     public var layout: Layout
+
+    public init(folders: [FolderNode] = [], notes: [NoteMeta] = [], layout: Layout = Layout()) {
+        self.folders = folders
+        self.notes = notes
+        self.layout = layout
+    }
 }
 
 func isAttachmentsName(_ name: String) -> Bool { name.lowercased() == attachmentsDir }

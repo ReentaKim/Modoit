@@ -137,7 +137,7 @@ macos/                     ← v2 제품 코드 (새로 만듦)
   Tests/ModoitCoreTests/   옮긴 cargo·vitest 케이스
   Tests/ModoitKitTests/    세션·스티키 관리 테스트(임시 폴더에 실제 파일)
   editor-host/             TipTap 번들 진입점 (src/editor를 가져다 씀)
-  build-app.sh             .app / .dmg 만들기
+  build-app.sh             .app 만들기 (기본은 개발판 `io.github.reentakim.modoit.dev`, `release`를 주면 정식 앱 ID)
 src/editor/                TipTap 편집기 (v0.x와 v2가 함께 씀)
 src/, src-tauri/           v0.x 앱. v2.0 출시 때까지 유지, 출시 뒤 편집기만 남기고 정리
 spike/                     스파이크. 측정 스크립트는 M8에서 다시 씀
@@ -177,6 +177,7 @@ v0.x의 ADR 번호와 겹치지 않게 `V2-`를 붙인다.
 | 두 편집기의 결과 일치 | 같은 입력 → 네이티브와 TipTap의 Markdown 비교(F-08 A6), 번갈아 고친 뒤 바이트 비교(NFR-21) |
 | v0.x 호환 | v0.3 QA 데이터 폴더를 v2로 열고 저장한 뒤 v0.4로 다시 열기(NFR-16) |
 | 메모리·실행 시간 | `spike/bench.sh` 방식, 대표 Mac에서(Brief 2.2) |
+| 앱 전체(화면 → 편집기 → 파일) | `macos/build-app.sh` 뒤 `open -n -W macos/build/Modoit.app --args --config-dir <임시> --vault <임시 폴더> --selftest 1 --log <파일>`. 실제 앱에서 메모를 고르고 편집기에 글자를 넣어 파일에 저장되는지 본다. 개발판은 앱 ID가 `.dev`라 정식판의 설정을 건드리지 않는다 |
 | 화면·한글 입력·종료 | 수동 확인([manual-checks](../qa/manual-checks.md)) |
 
 ## 7. 스파이크 결과 요약 (2026-11-09)
