@@ -203,19 +203,20 @@ footer{margin-top:60px;color:var(--sub);font-size:13px}
     <div class="cols">
       <aside class="side" aria-label="사이드바">
         <div class="row sel"><span>모든 메모</span><span class="n">24</span></div><span class="m" style="margin-left:8px">3</span>
+        <div class="row"><span>★ 즐겨찾기 <span class="m">16</span></span><span class="n">1</span></div>
         <div class="row"><span>▾ 메모</span><span class="n">9</span></div>
         <div class="row ind"><span>회의</span><span class="n">5</span></div>
         <div class="row"><span>▸ 개인</span><span class="n">6</span></div>
         <div class="sep"></div><span class="m" style="margin-left:8px">4</span>
         <div class="row"><span>▸ 프로젝트</span><span class="n">4</span></div>
-        <div class="sec">꺼내 둔 메모 <span class="m">5</span></div>
-        <div class="row"><span><i class="dot" style="background:var(--st-yellow)"></i>오늘 할 일</span></div>
-        <div class="row"><span><i class="dot" style="background:var(--st-blue)"></i>장보기</span></div>
+        <div class="sec">스티키 메모 <span class="m">5</span></div>
+        <div class="row"><span><i class="dot" style="background:var(--st-yellow)"></i>오늘 할 일</span><span class="n" title="항상 위: 켜짐">📌</span></div>
+        <div class="row"><span><i class="dot" style="background:var(--st-blue)"></i>장보기</span><span class="n" title="항상 위: 꺼짐" style="opacity:.35">📌</span></div>
         <div class="vault">📁 내 메모 <span class="m">6</span></div>
       </aside>
       <div class="list" aria-label="메모 목록">
         <div class="bar"><span class="search">검색 <span class="m">7</span></span><span class="tb-btn">⇅</span><span class="tb-btn">✎</span><span class="m">8</span></div>
-        <div class="grp">고정됨 <span class="m">9</span></div>
+        <div class="grp">즐겨찾기 <span class="m">9</span></div>
         <div class="note"><b>주간 목표</b><span>11월 3일 · 이번 주 끝낼 것</span></div>
         <div class="grp">오늘</div>
         <div class="note sel"><b><i class="dot" style="background:var(--st-yellow)"></i>오늘 할 일</b><span>오후 2:14 · 디자인 검토, 스파이크…</span></div>
@@ -227,7 +228,7 @@ footer{margin-top:60px;color:var(--sub);font-size:13px}
         <span class="m" style="margin:6px 12px">10</span>
       </div>
       <div class="ed" aria-label="편집기">
-        <div class="bar"><span class="tb-btn" title="스티키로 꺼내기·넣기">⧉</span><span class="tb-btn" title="휴지통">🗑</span><span class="m">11</span></div>
+        <div class="bar"><span class="tb-btn" title="즐겨찾기">☆</span><span class="tb-btn" title="스티키로 꺼내기·넣기">⧉</span><span class="tb-btn" title="휴지통">🗑</span><span class="m">11</span></div>
         <div class="banner" id="b-readonly"><span>이 메모에는 Modoit이 지원하지 않는 서식(각주)이 있어 읽기 전용으로 열었습니다.</span><u>그래도 편집</u><span class="m">13</span></div>
         <div class="banner" id="b-savefail"><span>저장하지 못했습니다 — 다시 시도 중…</span><span class="m">14</span></div>
         <div class="dates">만든 날 2026년 11월 9일 · 고친 날 오후 2:14 <span class="m">12</span></div>
@@ -249,17 +250,18 @@ footer{margin-top:60px;color:var(--sub);font-size:13px}
     <tr><td><span class="m">2</span></td><td>사이드바 접기·펴기. ⌥⌘S. 상태 기억.</td><td>F-02 FR-25</td></tr>
     <tr><td><span class="m">3</span></td><td>"모든 메모"는 전체 수, 폴더는 <b>바로 안</b>의 메모 수. 폴더: 펼치기·접기, 우클릭(새 하위 폴더, 이름 변경, 아래에 구분선 추가, 휴지통으로), 끌어 놓기(위 = 안으로, 사이 = 순서).</td><td>F-03 FR-26~28, R-1</td></tr>
     <tr><td><span class="m">4</span></td><td>구분선. 끌어서 옮기고 우클릭으로 지움. 정렬은 구분선 구역 안에서만.</td><td>F-03 FR-29</td></tr>
-    <tr><td><span class="m">5</span></td><td>꺼내 둔 메모: <b>지금 떠 있는</b> 스티키만, 색 점과 함께. 마우스를 올리면 다시 넣기 버튼. 우클릭: 다시 넣기, 색·위치 기억 지우기.</td><td>F-08 FR-31, FR-44</td></tr>
+    <tr><td><span class="m">5</span></td><td>스티키 메모(v0.x "꺼내 둔 메모"): <b>지금 떠 있는</b> 스티키만, 색 점과 함께. 오른쪽 핀 = 그 스티키의 <b>항상 위</b> 켜기·끄기(켜지면 진한 핀, 스티키 막대의 핀과 같은 상태). 마우스를 올리면 다시 넣기 버튼. 우클릭: 다시 넣기, 색·위치 기억 지우기.</td><td>F-08 FR-31, FR-44, FR-55</td></tr>
     <tr><td><span class="m">6</span></td><td>저장 폴더 이름. 누르면 폴더 변경(저장 못 한 입력이 있으면 DLG-02).</td><td>F-01 FR-02</td></tr>
     <tr><td><span class="m">7</span></td><td>검색. ⌘F로 커서. 지금 보는 범위에서 제목·미리보기·경로. Esc로 지움.</td><td>F-09</td></tr>
     <tr><td><span class="m">8</span></td><td>정렬(수정일순·만든 날짜순·이름순), 새 메모(⌘N, 지금 폴더에, 검색어 지움).</td><td>F-04 FR-39, F-05 FR-06</td></tr>
-    <tr><td><span class="m">9</span></td><td>"고정됨" 그룹은 항상 맨 위. 우클릭으로 고정·해제(⌘⇧P).</td><td>F-04 FR-35</td></tr>
-    <tr><td><span class="m">10</span></td><td>날짜 그룹(오늘·어제·지난 7일·지난 30일·연도). 행: 제목, 날짜(정렬 기준을 따름), 미리보기, 떠 있으면 색 점. 행을 사이드바 폴더로 끌면 이동. 우클릭: 고정, 꺼내기·넣기, 색·위치 기억 지우기, 휴지통.</td><td>F-04 FR-05, FR-36, R-2</td></tr>
-    <tr><td><span class="m">11</span></td><td>스티키로 꺼내기 ↔ 다시 넣기 토글(⌘⇧S). 휴지통(시스템 휴지통, 다음 메모 선택).</td><td>F-08 FR-30, F-05 FR-09</td></tr>
+    <tr><td><span class="m">9</span></td><td>"즐겨찾기" 그룹은 항상 맨 위(지금 폴더 안의 즐겨찾기). 우클릭으로 즐겨찾기에 추가·해제(⌘⇧P).</td><td>F-04 FR-35, R-7</td></tr>
+    <tr><td><span class="m">10</span></td><td>날짜 그룹(오늘·어제·지난 7일·지난 30일·연도). 행: 제목, 날짜(정렬 기준을 따름), 미리보기, 떠 있으면 색 점. 행을 사이드바 폴더로 끌면 이동. 우클릭: 즐겨찾기, 꺼내기·넣기, 색·위치 기억 지우기, 휴지통.</td><td>F-04 FR-05, FR-36, R-2</td></tr>
+    <tr><td><span class="m">11</span></td><td>별 = 즐겨찾기 켜기·끄기(켜지면 채워진 별). 스티키로 꺼내기 ↔ 다시 넣기 토글(⌘⇧S). 휴지통(시스템 휴지통, 다음 메모 선택).</td><td>F-04 FR-54, F-08 FR-30, F-05 FR-09</td></tr>
     <tr><td><span class="m">12</span></td><td>만든 날 · 고친 날. 앱이 저장해도 만든 날은 그대로.</td><td>F-04 FR-47</td></tr>
     <tr><td><span class="m">13</span></td><td>지원하지 않는 서식이 있으면 읽기 전용 안내(MSG-02). "그래도 편집"을 눌러야 편집.</td><td>F-06 FR-43</td></tr>
     <tr><td><span class="m">14</span></td><td>저장 실패 안내(MSG-01). 3초마다 재시도, 성공하면 사라짐.</td><td>F-07, Brief 3.2-5</td></tr>
     <tr><td><span class="m">15</span></td><td>본문: 첫 줄이 제목이자 파일 이름. 단축 입력(<code>- </code> <code>[ ] </code> <code># </code> <code>| </code> <code>&gt; </code> …), <code>/</code> 메뉴, 체크박스, 토글, 표, 이미지. TipTap 편집기(앱 내장).</td><td>F-05, F-06</td></tr>
+    <tr><td><span class="m">16</span></td><td>즐겨찾기: 누르면 <b>모든 폴더</b>의 즐겨찾기 메모만 목록에 보임. 숫자는 즐겨찾기 메모 수. "고정"이라는 말은 스티키의 항상 위에만 쓴다.</td><td>F-04 FR-54, R-6</td></tr>
     <tr><td>—</td><td>"종료 멈춤 안내" 상태: 저장 못 한 메모가 있어 종료를 한 번 멈춤(MSG-04, 10초).</td><td>F-12 R-2</td></tr>
   </tbody></table>
 </section>
@@ -339,7 +341,7 @@ footer{margin-top:60px;color:var(--sub);font-size:13px}
     <div class="menubar"><b>Modoit</b><span><u>파일</u></span><span>편집</span><span>보기</span><span>창</span><span>도움말</span></div>
     <div class="menu">
       <div>새 메모<kbd>⌘N</kbd></div><div>새 스티키 메모<kbd>⇧⌘N</kbd></div><div>새 폴더<kbd>⌥⌘N</kbd></div><hr>
-      <div>스티키로 꺼내기 <span class="m">1</span><kbd>⇧⌘S</kbd></div><div>고정<kbd>⇧⌘P</kbd></div><hr>
+      <div>스티키로 꺼내기 <span class="m">1</span><kbd>⇧⌘S</kbd></div><div>즐겨찾기에 추가<kbd>⇧⌘P</kbd></div><hr>
       <div>저장 폴더 변경…<kbd></kbd></div>
     </div>
   </div>
