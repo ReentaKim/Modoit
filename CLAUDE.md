@@ -11,6 +11,7 @@ Modoit은 macOS 메모 앱이다. v0.x는 Tauri 2 + React + TipTap(`src/`, `src-
 - 문서 맨 위에 상태(초안 / 검토 중 / 확정)와 "검토 요청"을 둔다. AI는 초안을 쓰고, 확정은 사람(대표)이 한다.
 - 대표가 정한 것은 `docs/decisions.md`에 한 줄로 남긴다(날짜, 결정, 이유, 결정자).
 - `docs/archive/`는 고치지 않는다.
+- 문서를 고친 뒤에는 `python3 scripts/check-docs.py`를 돌려 오류 0건을 확인한다(링크, ID, 요구사항-검증 연결, Brief 목록).
 
 ## ID
 `D-xx` 결정 → `FR-xx`·`NFR-xx` 요구사항 → `F-xx` 기능 카드 → `SCR-xx` 화면 → 테스트 이름 → `BUG-xx` 결함. 테스트 이름에 요구사항·결함 ID를 넣는다.
