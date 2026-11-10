@@ -67,7 +67,8 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 | Vault | 트리·목록, 원자적 쓰기(생성일 유지), 휴지통, 이동 + 링크 재작성, 첨부 저장 | `vault.rs` | cargo |
 | Layout | `.modoit/layout.json` | `layout.rs`, `sidebar.ts` | cargo, vitest |
 | Merge | 줄 단위 3-way 병합, 충돌은 양쪽 보존 | `merge.ts`(node-diff3) | vitest `v03Session.test.ts` |
-| Classify | 읽기 전용 판정, 스티키 편집기 방식 판정 | `markdownSafety.ts`, `editability.ts` | vitest |
+| Classify | 스티키 편집기 방식 판정(허용 목록). 읽기 전용 판정(FR-43)은 옮기지 않는다: TipTap이 실제로 열어 보고 정하므로 편집기 쪽(`markdownSafety.ts`, `editability.ts`)에 그대로 둔다 | 새로 작성 | 새로 작성 |
+| StickyMarkup | 네이티브 스티키의 줄 해석, 편집 규칙 | 새로 작성(F-06 4.1의 단축 입력과 같은 결과) | 새로 작성 |
 | Config | `config.json` 읽기·쓰기, 범위 밖 값 보정 | `config.rs`, `prefs.ts` | cargo |
 
 - 옮긴 수는 cargo 45개 + 순수 로직 vitest다. 스파이크에서 13개를 이미 옮겨 통과했다.
@@ -94,8 +95,12 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 - 체크박스는 누를 수 있는 그림으로 그리고, 누르면 원문의 `[ ]` ↔ `[x]` 한 글자만 바꾼다.
 - 단축 입력(`- `, `[] `, `# ` 등)은 메인 편집기와 **같은 Markdown 결과**를 내야 한다(F-06 R-1). 비교 테스트를 만든다(F-08 A6).
 - 한글 조합은 NSTextView가 처리한다. 꾸미기(스타일 갱신)는 조합 중인 범위를 건드리지 않는다.
-- 편집기 방식 판정은 `ModoitCore.Classify`가 원문만 보고 한다. 웹 화면을 띄우지 않고 정한다.
-- **아직 시험하지 않았다.** 스파이크의 네이티브 스티키는 원문을 꾸밈 없이 보여 주기만 했다. 기호 숨기기, 체크박스, 목록 들여쓰기, 한글 조합이 함께 잘 되는지가 v2에서 가장 큰 기술 위험이다 → V2-11.
+- 편집기 방식 판정은 `ModoitCore.Classify`가 원문만 보고 한다. 웹 화면을 띄우지 않고 정한다. **허용 목록 방식**이다: 네이티브가 다룰 수 있다고 확인한 줄 모양만 통과시키고, 조금이라도 다르면 TipTap으로 연다.
+- 줄 해석과 편집 규칙(Enter, 체크, 들여쓰기, 단축 입력)은 `ModoitCore.StickyMarkup`에 UI 없이 둔다. 화면 코드는 그 결과를 `NSTextView`에 입히기만 한다.
+- **2차 스파이크로 확인했다(2026-11-10, [결과](../../spike/sticky-editor/README.md)).** 꾸밈, 편집 규칙, 바이트 보존, 한글 조합 재현이 되고, 메모리는 스티키 1개당 약 2.2 MB다. 구현 때 지킬 것 두 가지:
+  - 꾸밈은 편집이 끝난 뒤에 입힌다(편집 처리 도중에 속성을 바꾸면 커서가 튄다).
+  - 조합 중에는 본문을 바꾸지 않는다. 다른 쪽의 변경은 조합이 끝난 뒤 병합해 반영한다.
+- 실제 한글 입력기로 치는 확인은 수동이다([manual-checks](../qa/manual-checks.md) SP-03).
 
 ### 3.4 TipTap 편집기 브리지
 - `src/editor/*`는 고치지 않는다. Vite 진입점을 하나 더 두어 편집기만 번들한다(스파이크 `spike/editor-host`를 제품 코드로 옮긴다).
@@ -108,7 +113,7 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 |---|---|---|
 | Swift → JS | `load` | `{ markdown, notePath, vault, compact, readOnly, theme, accent, font }` |
 | Swift → JS | `update` | `{ markdown }` 세션 본문이 다른 쪽에서 바뀜. 조합 중이면 편집기가 미뤘다가 반영 |
-| JS → Swift | `ready` | 편집기 준비 완료(NFR-18 측정 기준) |
+| JS → Swift | `ready` | `{ unsupported: [서식 이름] }` 편집기 준비 완료(NFR-18 측정 기준). 지원하지 않는 서식이 있으면 읽기 전용 안내를 띄운다(FR-43) |
 | JS → Swift | `change` | `{ markdown, base }` 사용자 변경만. `base`는 편집기가 마지막으로 받은 본문 |
 | JS → Swift | `saveAttachment` | `{ id, notePath, fileName, dataBase64 }` → `{ id, result \| error }` |
 
@@ -180,4 +185,5 @@ v0.x의 ADR 번호와 겹치지 않게 `V2-`를 붙인다.
 | 준비 시간 | 재지 못함 | 804 ms | 509 ms |
 
 - 확인한 것: 메모리 이득은 네이티브 스티키에서만 난다. TipTap이 WKWebView에서 v0.3처럼 그려지고, 열기만 해서는 파일을 쓰지 않는다. 코어 테스트 13개가 Swift에서 통과한다.
-- 확인하지 못한 것: 입력 뒤 저장되는 Markdown이 v0.3과 같은지(수동 확인 SP-01), 한글 입력(SP-02), 꾸밈이 있는 네이티브 편집기(V2-11).
+- 확인하지 못한 것: 입력 뒤 저장되는 Markdown이 v0.3과 같은지(수동 확인 SP-01), 한글 입력(SP-02).
+- 꾸밈이 있는 네이티브 편집기는 2차 스파이크로 확인했다(3.3).

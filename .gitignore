@@ -34,3 +34,5 @@ macos/.build
 macos/.swiftpm
 macos/build
 macos/Sources/Modoit/Resources/editor
+spike/sticky-editor/.build
+spike/sticky-editor/.swiftpm
