@@ -169,6 +169,8 @@ struct SidebarView: View {
             .padding(.leading, CGFloat(row.depth) * 14)
             .frame(height: rowHeight)
             .contentShape(Rectangle())
+            // 끌기(onDrag)를 붙인 행은 목록의 기본 클릭 선택이 먹지 않는다. 직접 고른다
+            .onTapGesture { model.selection = .folder(path) }
             .badge(model.count(in: path))
             .tag(SidebarSelection.folder(path))
             .listRowBackground(drop == DropTarget(rowID: row.id, zone: .into) ? Color.accentColor.opacity(0.25) : nil)

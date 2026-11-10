@@ -45,6 +45,8 @@ struct LaunchOptions {
     var selfTest = false
     var snapshot: String?
     var log: String?
+    /// 선택이 바뀔 때마다 적는 파일(검사용)
+    var stateFile: String?
 
     static let current = parse(CommandLine.arguments)
 
@@ -59,6 +61,7 @@ struct LaunchOptions {
             case "--selftest": o.selfTest = it.next() == "1"
             case "--snapshot": o.snapshot = it.next()
             case "--log": o.log = it.next()
+            case "--state-file": o.stateFile = it.next()
             default: break
             }
         }
@@ -485,6 +488,9 @@ final class AppModel {
     private func rememberSelection() {
         guard vault != nil else { return }
         UserDefaults.standard.set(["selection": selection.stored, "note": selectedNote ?? ""], forKey: defaultsKey)
+        if let f = LaunchOptions.current.stateFile {
+            try? "\(selection.stored) | \(selectedNote ?? "-")\n".write(toFile: f, atomically: true, encoding: .utf8)
+        }
     }
 
     private func restoreSelection() {

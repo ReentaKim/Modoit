@@ -79,6 +79,10 @@ struct NoteListView: View {
                 Section {
                     ForEach(group.notes) { n in
                         NoteRow(note: n, sort: model.sort)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            // 끌기(onDrag)를 붙인 행은 목록의 기본 클릭 선택이 먹지 않는다. 직접 고른다
+                            .onTapGesture { model.selectNote(n.path) }
                             .tag(n.path)
                             // 사이드바 폴더로 끌어 옮긴다 (FR-36)
                             .onDrag { DragPayload.note(n.path).provider }
