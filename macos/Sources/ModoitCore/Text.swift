@@ -38,13 +38,13 @@ extension String {
     }
 
     /// 바이트가 같은가. `==`와 달리 NFC와 NFD를 다르게 본다 (Rust `str ==`)
-    func sameBytes(_ other: String) -> Bool { utf8.elementsEqual(other.utf8) }
+    public func sameBytes(_ other: String) -> Bool { utf8.elementsEqual(other.utf8) }
 
     /// Rust `str::starts_with` (바이트 접두사)
-    func bytesHasPrefix(_ p: String) -> Bool { utf8.starts(with: p.utf8) }
+    public func bytesHasPrefix(_ p: String) -> Bool { utf8.starts(with: p.utf8) }
 
     /// 앞에서 바이트 n개를 뗀 나머지. n은 글자 경계여야 한다
-    func droppingBytes(_ n: Int) -> String { String(decoding: utf8.dropFirst(n), as: UTF8.self) }
+    public func droppingBytes(_ n: Int) -> String { String(decoding: utf8.dropFirst(n), as: UTF8.self) }
 
     /// "/"로 나눈다. 빈 조각은 버린다
     var pathSegments: [String] {

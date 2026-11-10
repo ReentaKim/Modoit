@@ -83,7 +83,7 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
  StickyPanel의 편집기 ───┘        ▲
                                   └── 파일 감시: 다른 앱이 A.md를 바꿈 → 3-way 병합
 ```
-- `NoteSession`은 본문(Markdown 문자열), 디스크와 같다고 알던 본문(base), 저장 상태를 가진다.
+- `NoteSession`(`ModoitKit`)은 본문(Markdown 문자열), 디스크와 같다고 알던 본문(base), 저장 상태를 가진다.
 - 메인 창과 스티키가 같은 메모를 열면 **같은 세션**에 붙는다. 한쪽이 고치면 세션이 다른 쪽에 바로 알린다. 파일을 거치지 않는다.
 - 3-way 병합은 이제 두 경우에만 쓴다: 다른 앱이 파일을 바꿨을 때, 그리고 TipTap이 보낸 본문에 그 사이 네이티브 쪽 입력이 빠져 있을 때.
 - 한글 조합 중인 편집기에는 조합이 끝난 뒤 반영한다(NFR-20, F-07 R-4).
@@ -130,11 +130,12 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 ## 4. 저장소 구성 (V2-07)
 ```
 macos/                     ← v2 제품 코드 (새로 만듦)
-  Package.swift            ModoitCore(라이브러리) + Modoit(앱) + 테스트
-  Sources/ModoitCore/
-  Sources/Modoit/          화면, 앱 상태, 편집기 2종, Resources/editor(빌드 산출물)
+  Package.swift            ModoitCore + ModoitKit(라이브러리) + Modoit(앱) + 테스트
+  Sources/ModoitCore/      파일·규칙. Foundation만 쓴다
+  Sources/ModoitKit/       화면 없는 앱 로직: 편집 세션, 저장, 스티키 관리
+  Sources/Modoit/          화면(SwiftUI·AppKit), 편집기 2종, Resources/editor(빌드 산출물)
   Tests/ModoitCoreTests/   옮긴 cargo·vitest 케이스
-  Tests/ModoitTests/       세션·스티키 관리 등 화면 없는 앱 로직
+  Tests/ModoitKitTests/    세션·스티키 관리 테스트(임시 폴더에 실제 파일)
   editor-host/             TipTap 번들 진입점 (src/editor를 가져다 씀)
   build-app.sh             .app / .dmg 만들기
 src/editor/                TipTap 편집기 (v0.x와 v2가 함께 씀)
@@ -154,6 +155,7 @@ v0.x의 ADR 번호와 겹치지 않게 `V2-`를 붙인다.
 | V2-04 | 스티키는 네이티브 편집기, 어려운 서식만 TipTap | 메모리 이득은 네이티브에서만 난다(스파이크: 1개당 5 MB vs 75~100 MB). D-04, D-12 |
 | V2-05 | NSPanel은 공개 API만 | NFR-19 |
 | V2-06 | 저장 형식·폴더 구조·frontmatter·layout.json·config.json은 v0.x와 같다 | Brief 3.6. 변환 없이 이어 쓰고, 되돌아갈 수도 있다 |
+| V2-14 | 세션 저장은 메인 스레드에서 한 번에 끝낸다(동기). 폴더 전체 목록 읽기만 백그라운드로 보낸다 (2026-11-10) | 메모 파일은 작아 저장이 수 ms다. 저장 도중에 입력이 끼어드는 경합(v0.x BUG-39)이 구조적으로 생기지 않고, 종료 전 저장(F-12)도 기다림 없이 끝난다 |
 | V2-13 | 코어는 경로를 `String`으로 다루고, 파일·폴더를 만들거나 이름을 바꿀 때는 POSIX 호출(`open`, `mkdir`, `rename`)을 쓴다. `URL`·`FileManager`의 만들기 API를 쓰지 않는다 (2026-11-10, M5에서 발견) | Foundation의 만들기 API는 한글 이름을 자모로 풀어(NFD) 디스크에 만든다. v0.x(Rust)는 받은 글자 그대로(NFC) 만들고 바이트로 비교한다. 섞이면 `layout.json`의 폴더 순서가 v0.x에서 맞지 않는다(NFR-16). 테스트 `created_names_keep_nfc_bytes` |
 
 ### 5.2 2026-11-10에 정한 것 (D-23)

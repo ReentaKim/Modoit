@@ -8,6 +8,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         .library(name: "ModoitCore", targets: ["ModoitCore"]),
+        .library(name: "ModoitKit", targets: ["ModoitKit"]),
     ],
     dependencies: [
         // frontmatter(YAML) 읽기 전용. 쓰기는 파서를 거치지 않는다 (V2-12)
@@ -16,6 +17,9 @@ let package = Package(
     targets: [
         // UI 없는 코어. AppKit·SwiftUI를 넣지 않는다 (v0.x src-tauri/src 에서 옮김)
         .target(name: "ModoitCore", dependencies: [.product(name: "Yams", package: "Yams")]),
+        // 화면 없는 앱 로직: 편집 세션, 저장, 스티키 관리. SwiftUI·AppKit 화면 코드는 넣지 않는다
+        .target(name: "ModoitKit", dependencies: ["ModoitCore"]),
+        .testTarget(name: "ModoitKitTests", dependencies: ["ModoitKit"]),
         .testTarget(
             name: "ModoitCoreTests",
             dependencies: ["ModoitCore"],
