@@ -94,6 +94,7 @@ final class AppModel {
     private(set) var findRequest = 0
 
     @ObservationIgnored let editor = WebEditor()
+    @ObservationIgnored let stickies = StickyManager()
     @ObservationIgnored private(set) var store: SessionStore?
     @ObservationIgnored private(set) var session: NoteSession?
     @ObservationIgnored private let editorID = EditorID()
@@ -117,6 +118,7 @@ final class AppModel {
         editor.onOpened = { [weak self] reasons in self?.unsupported = reasons }
         editor.onLoaded = { [weak self] in self?.loadedCount += 1 }
         editor.onError = { [weak self] m in self?.show(notice: m) }
+        stickies.model = self
         applyAppearance()
         if let v = options.vault {
             open(vault: v, remember: false)
@@ -164,11 +166,15 @@ final class AppModel {
             return
         }
         closeSession()
+        // 스티키는 저장을 마쳤으니 닫는다. 새 폴더의 스티키는 아래에서 띄운다 (F-08 4.4)
+        stickies.closeAll()
         config.vault = path
         if remember { saveConfig() }
         editor.vault = path
         let s = SessionStore(vault: path)
-        s.onSaved = { [weak self] in self?.scheduleRefresh() }
+        s.onSaved = { [weak self] in
+            self?.scheduleRefresh()
+        }
         s.onState = { [weak self] in self?.updateFailing() }
         s.onRenamed = { [weak self] old, new in self?.noteRenamed(old, new) }
         store = s
@@ -182,6 +188,8 @@ final class AppModel {
         _ = try? createFolderIfMissing(path)
         refresh()
         restoreSelection()
+        // 창을 만드는 일은 앱이 뜬 뒤로 미룬다
+        DispatchQueue.main.async { [weak self] in self?.stickies.restore() }
     }
 
     private func createFolderIfMissing(_ vault: String) throws {
@@ -265,7 +273,7 @@ final class AppModel {
         store.detach(editorID, from: s)
         if s.busy {
             show(notice: "이전 메모를 아직 저장하지 못했습니다. 저장될 때까지 계속 다시 시도합니다.")
-        } else if s.createdNew, s.body.allSatisfy(\.isWhitespace), let vault {
+        } else if s.createdNew, s.editorCount == 0, s.body.allSatisfy(\.isWhitespace), let vault {
             // 이번 실행에서 앱이 만든 빈 메모만 정리한다 (Brief 3.3-2)
             store.discardUnder(s.path)
             try? trashPath(vault + "/" + s.path)
@@ -291,6 +299,7 @@ final class AppModel {
             editor.moved(to: new)
             rememberSelection()
         }
+        stickies.pathsChanged()
         scheduleRefresh()
     }
 
@@ -330,6 +339,7 @@ final class AppModel {
             selectedNote = nil
         }
         // 저장하면 지운 파일이 다시 생긴다 (Brief 3.3-4)
+        stickies.discardUnder(path)
         store.discardUnder(path)
         do {
             try trashPath(vault + "/" + path)
@@ -373,6 +383,7 @@ final class AppModel {
         saveConfig()
         applyAppearance()
         editor.apply(prefs: p)
+        stickies.apply(prefs: p)
     }
 
     /// 모양: 앱 전체에 건다. 메인 창이 숨어 있어도, 메뉴와 대화상자에도 바로 적용된다 (FR-45)
@@ -382,6 +393,36 @@ final class AppModel {
         case "dark": NSAppearance(named: .darkAqua)
         default: nil
         }
+    }
+
+    // MARK: 스티키 (F-08)
+
+    /// ⌘⇧S·툴바: 메인 창에서 고른 메모를 꺼내거나 다시 넣는다 (FR-44, F-11 R-2)
+    func toggleStickyOfSelected() {
+        if let p = selectedNote { stickies.toggle(p) }
+    }
+
+    /// ⌘⇧N: 새 메모를 만들어 바로 스티키로 띄운다 (FR-38)
+    func newStickyNote() {
+        guard let vault else { return }
+        let folder: String = { if case .folder(let p) = selection { return p } else { return "" } }()
+        do {
+            let path = try createNote(vault: vault, folder: folder)
+            refresh()
+            stickies.popOut(path, fresh: true)
+            // 스티키는 보기 전용이다. 글은 메인 창에서 쓴다 (D-25)
+            reveal(path)
+        } catch {
+            show(notice: "메모를 만들 수 없습니다: \(error)")
+        }
+    }
+
+    /// 스티키의 "메인 창에서 열기": 메인 창을 보이고 그 메모를 고른다
+    func reveal(_ path: String) {
+        showMainWindow()
+        query = ""
+        if !groups.contains(where: { $0.notes.contains { $0.path == path } }) { selection = .all }
+        selectNote(path)
     }
 
     // MARK: 창 제목, Finder
@@ -440,6 +481,7 @@ final class AppModel {
             rememberSelection()
         }
         collapsed = Set(collapsed.map { remap($0) ?? $0 })
+        stickies.pathsChanged()
     }
 
     func createFolder(parent: String, name: String) {
@@ -480,6 +522,7 @@ final class AppModel {
             if let s = session { session = nil; s.detach(editorID) }
             selectedNote = nil
         }
+        stickies.discardUnder(path)
         store.discardUnder(path)
         do {
             try ModoitCore.trashFolder(vault: vault, path)

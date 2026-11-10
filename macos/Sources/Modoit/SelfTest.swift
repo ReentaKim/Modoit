@@ -170,7 +170,7 @@ final class SelfTest {
         check("설정 저장 (범위 밖 크기는 22로)", conf.contains("\"theme\" : \"dark\"") && conf.contains("\"accent\" : \"blue\"") && conf.contains("\"fontSize\" : 22"), conf)
         check("모양: 앱 전체가 다크", NSApp.appearance?.name == .darkAqua)
         _ = await wait("편집기 다크", timeout: 3) { self.model.editor.webView.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
-        try? await Task.sleep(for: .milliseconds(200))
+        try? await Task.sleep(for: .milliseconds(700))
         let look = await js("document.documentElement.dataset.accent + '|' + matchMedia('(prefers-color-scheme: dark)').matches + '|' + getComputedStyle(document.documentElement).getPropertyValue('--font-size')")
         check("편집기에 강조 색·다크·글자 크기 적용", look == "blue|true|22px", look)
         if let out = LaunchOptions.current.snapshot { await snapshot(to: out.replacingOccurrences(of: ".png", with: "-dark.png")) }
@@ -230,5 +230,135 @@ final class SelfTest {
         _ = await wait("편집기 변경 전달", timeout: 2) { self.model.session?.dirty == true }
         check("종료 전 저장: 남은 것 없음", model.flushForQuit() == 0)
         check("종료 직전 입력이 파일에 있다", read("메모/장보기.md").contains("종료직전"))
+
+        await stickyChecks(vault)
+    }
+
+    /// 8. 스티키 (F-08)
+    private func stickyChecks(_ vault: String) async {
+        let st = model.stickies
+        let note = "메모/장보기.md"
+        func web(_ w: WebEditor?, _ code: String) async -> String {
+            guard let w else { return "" }
+            return (try? await w.webView.evaluateJavaScript(code)).map { "\($0)" } ?? ""
+        }
+
+        // 꺼내기: 네이티브 편집기로 뜨고, frontmatter에는 sticky만 더해진다 (FR-30, FR-51, NFR-09)
+        st.popOut(note)
+        guard let c = st.controller(note) else { return check("꺼내기: 패널이 뜬다", false) }
+        check("꺼내기: 패널이 뜬다", c.panel.isVisible)
+        check("꺼내기: sticky만 더해진다", read(note).hasPrefix("---\ntags: [a, b]  # 주석\npinned: true\nsticky: { color: yellow, x: null, y: null, w: 280, h: 280, onTop: false, open: true }\n---\n"), read(note).debugDescription)
+        check("네이티브 편집기로 열린다", c.kind == .native && c.textView?.string == model.session?.body)
+        check("사이드바 스티키 메모에 뜬다", model.openStickies.map(\.path) == [note])
+        check("다른 앱의 포커스를 뺏지 않는 패널", c.panel.styleMask.contains(.nonactivatingPanel) && c.panel.collectionBehavior.contains(.canJoinAllSpaces))
+
+        // 스티키는 보기 전용이다 (D-25)
+        check("스티키는 보기 전용", c.textView?.isEditable == false && c.textView?.isSelectable == true)
+
+        // 기호만 있는 줄도 한 줄 높이를 지킨다 (체크박스가 겹쳐 그려지던 문제)
+        try? atomicWrite(read(note) + "\n- [ ] 달걀\n- [ ] ", to: vault + "/" + note)
+        _ = await wait("밖에서 고친 내용", timeout: 3) { c.textView?.string.contains("달걀") == true }
+        if let tv = c.textView, let lm = tv.layoutManager, let tc = tv.textContainer {
+            lm.ensureLayout(for: tc)
+            let last = lm.lineFragmentRect(forGlyphAt: max(0, lm.numberOfGlyphs - 1), effectiveRange: nil)
+            check("빈 체크박스 줄도 한 줄 높이", last.height >= 20, "높이 \(last.height)")
+        }
+
+        // 메인 창에 쓰면 스티키에 보인다 (FR-30)
+        _ = await wait("메인 창 반영") { self.model.session?.body.contains("달걀") == true }
+        try? await Task.sleep(for: .milliseconds(400))
+        _ = await js("(()=>{const e=document.querySelector('.modoit-editor');e.focus();const s=window.getSelection();s.selectAllChildren(e);s.collapseToEnd();document.execCommand('insertText',false,'간장');return 1})()")
+        let seenInSticky = await wait("스티키에 반영", timeout: 1.5) { c.textView?.string.contains("간장") == true }
+        check("메인 창 입력이 1초 안에 스티키에 보인다", seenInSticky, c.textView?.string.debugDescription ?? "")
+        _ = await wait("입력 저장") { self.model.session?.dirty == false && self.read(note).contains("간장") }
+
+        // 체크박스를 누르면 그 줄의 한 글자만 바뀌고 메인 창에도 보인다 (R-9)
+        let beforeCheck = read(note)
+        if let tv = c.textView, let r = tv.string.range(of: "- [ ] 우유") {
+            tv.toggleCheck(atCharacter: NSRange(r, in: tv.string).location)
+        }
+        _ = await wait("체크 저장") { self.read(note).contains("- [x] 우유") }
+        check("스티키에서 체크: 한 글자만 바뀐다", read(note) == beforeCheck.replacingOccurrences(of: "- [ ] 우유", with: "- [x] 우유"), read(note).debugDescription)
+        let checkedInMain = await wait("메인 창에 체크 반영", timeout: 1.5) { self.model.session?.body.contains("- [x] 우유") == true }
+        check("스티키의 체크가 메인 창에 보인다", checkedInMain)
+
+        // 항상 위, 색 (FR-40, FR-55)
+        st.setOnTop(note, true)
+        check("항상 위: 창 단계와 파일, 사이드바가 같다", c.panel.level == .floating && read(note).contains("onTop: true") && model.openStickies.first?.sticky?.onTop == true)
+        st.setColor(note, "blue")
+        check("색 바꾸기", read(note).contains("color: blue"))
+
+        // 눈으로 볼 수 있게 스티키 화면을 그림으로 남긴다
+        if let out = LaunchOptions.current.snapshot, let v = c.panel.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+            v.cacheDisplay(in: v.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out.replacingOccurrences(of: ".png", with: "-sticky.png")))
+        }
+
+        // 네이티브로 그릴 수 없는 서식이 생기면 TipTap으로 바꿔 그린다 (R-10)
+        _ = await wait("입력 저장") { self.model.session?.dirty == false }
+        try? atomicWrite(read(note) + "\n```\ncode\n```\n", to: vault + "/" + note)
+        let switched = await wait("TipTap으로 전환") { c.kind == .web && c.web != nil }
+        check("코드 블록이 생기면 TipTap으로", switched)
+        _ = await wait("스티키 화면 준비", timeout: 5) { self.model.session?.body.contains("code") == true }
+        try? await Task.sleep(for: .milliseconds(1200))
+        let webText = await web(c.web, "document.querySelector('.modoit-editor')?.innerText ?? ''")
+        check("TipTap 스티키에 본문이 보인다", webText.contains("달걀") && webText.contains("code"), webText.debugDescription)
+        let compact = await web(c.web, "document.body.classList.contains('compact') + '|' + matchMedia('(prefers-color-scheme: dark)').matches + '|' + document.querySelector('.modoit-editor').isContentEditable")
+        check("TipTap 스티키는 좁은 화면·밝은 종이·보기 전용", compact == "true|false|false", compact)
+        // TipTap 스티키의 체크: 편집기가 문서를 다시 쓰지 않고 그 줄의 한 글자만 바뀐다
+        let beforeWeb = read(note)
+        _ = await web(c.web, "(()=>{const b=[...document.querySelectorAll('li[data-type=\"taskItem\"] input[type=checkbox]')];const t=b.find(x=>x.closest('li').innerText.includes('달걀'));t.click();return b.length})()")
+        _ = await wait("TipTap 스티키 체크 저장", timeout: 3) { self.read(note).contains("- [x] 달걀") }
+        check("TipTap 스티키에서 체크: 한 글자만 바뀐다", read(note) == beforeWeb.replacingOccurrences(of: "- [ ] 달걀", with: "- [x] 달걀"), read(note).debugDescription)
+        try? await Task.sleep(for: .milliseconds(600))
+        let webChecked = await web(c.web, "[...document.querySelectorAll('li[data-checked=\"true\"]')].some(x=>x.innerText.includes('달걀'))")
+        check("TipTap 스티키에 체크가 보인다", webChecked == "true" || webChecked == "1", webChecked)
+        // 코드 블록이 없어지면 다시 네이티브로 그린다
+        try? atomicWrite(read(note).replacingOccurrences(of: "\n```\ncode\n```\n", with: "\n"), to: vault + "/" + note)
+        let back = await wait("네이티브로 되돌림", timeout: 3) { c.kind == .native && c.textView?.string.contains("- [x] 달걀") == true }
+        check("TipTap 서식이 없어지면 다시 네이티브로", back)
+        // 두 번 누르면 메인 창에서 그 메모가 열린다
+        model.selectNote("업무/회의/주간.md")
+        c.textView?.onOpen?()
+        check("스티키를 두 번 누르면 메인 창에서 열린다", model.selectedNote == note, model.selectedNote ?? "")
+
+        // 다시 넣기: 색·위치는 기억한다 (FR-31, R-3)
+        check("다시 넣기", st.putBack(note) && st.controller(note) == nil && !c.panel.isVisible)
+        check("넣어도 색은 기억", read(note).contains("color: blue") && read(note).contains("open: false") && model.openStickies.isEmpty, read(note).debugDescription)
+        // 다시 꺼내면 같은 색 (FR-31)
+        st.popOut(note)
+        check("다시 꺼내면 같은 색·항상 위", st.controller(note)?.meta.color == "blue" && st.controller(note)?.meta.onTop == true)
+        // 다시 켠 것처럼: 닫았다가 복원해도 파일을 쓰지 않는다 (R-8)
+        let disk = read(note)
+        st.closeAll()
+        model.refresh()
+        st.restore()
+        check("복원: 열려 있던 스티키가 다시 뜨고 파일은 그대로", st.controller(note)?.panel.isVisible == true && read(note) == disk)
+        // 기억 지우기: sticky 키만 지운다 (FR-44)
+        st.forget(note)
+        check("기억 지우기", st.controller(note) == nil && !read(note).contains("sticky:") && read(note).hasPrefix("---\ntags: [a, b]  # 주석\npinned: true\n---\n"), read(note).debugDescription)
+
+        // ⌘⇧N: 빈 채로 넣으면 그 메모만 정리한다 (FR-38, R-7)
+        model.selection = .all
+        let countBefore = model.tree.notes.count
+        model.newStickyNote()
+        let freshPath = st.controllers.last?.session.path ?? ""
+        check("새 스티키 메모: 스티키로 뜨고 메인 창에서 쓴다", st.controllers.count == 1 && st.controllers.last?.fresh == true && model.tree.notes.count == countBefore + 1 && model.selectedNote == freshPath, freshPath)
+        st.putBack(freshPath)
+        model.selectNote("업무/회의/주간.md")
+        _ = await wait("빈 메모 정리", timeout: 2) { !FileManager.default.fileExists(atPath: vault + "/" + freshPath) }
+        model.refresh()
+        check("빈 새 스티키 메모는 정리된다", !FileManager.default.fileExists(atPath: vault + "/" + freshPath) && model.tree.notes.count == countBefore)
+        // 내용이 있는 메모는 넣어도 남는다 (BUG-23)
+        st.popOut("업무/회의/주간.md")
+        st.putBack("업무/회의/주간.md")
+        check("원래 있던 메모는 넣어도 남는다", read("업무/회의/주간.md").contains("주간 회의"))
+
+        // 휴지통으로 보내면 스티키도 닫힌다 (Brief 3.3-4)
+        try? atomicWrite("# 버릴 메모\n", to: vault + "/메모/버릴 메모.md")
+        model.refresh()
+        st.popOut("메모/버릴 메모.md")
+        model.trash(note: "메모/버릴 메모.md")
+        check("휴지통: 스티키가 닫히고 파일이 되살아나지 않는다", st.controllers.isEmpty && !FileManager.default.fileExists(atPath: vault + "/메모/버릴 메모.md"))
     }
 }

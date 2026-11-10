@@ -112,6 +112,10 @@ struct NoteListView: View {
                             .onDrag { DragPayload.note(n.path).provider }
                             .contextMenu {
                                 Button(n.pinned ? "즐겨찾기에서 해제" : "즐겨찾기에 추가") { model.setFavorite(n.path, !n.pinned) }
+                                Button(n.sticky?.open == true ? "스티키 다시 넣기" : "스티키로 꺼내기") { model.stickies.toggle(n.path) }
+                                if n.sticky != nil {
+                                    Button("스티키 색·위치 기억 지우기") { model.stickies.forget(n.path) }
+                                }
                                 Button("Finder에서 보기") { model.revealInFinder(n.path) }
                                 Divider()
                                 Button("휴지통으로", role: .destructive) { model.trash(note: n.path) }
@@ -215,6 +219,13 @@ struct EditorPane: View {
                     Label("즐겨찾기", systemImage: model.selectedMeta?.pinned == true ? "star.fill" : "star")
                 }
                 .help("즐겨찾기 (⇧⌘P)")
+                .disabled(model.selectedNote == nil)
+                Button {
+                    model.toggleStickyOfSelected()
+                } label: {
+                    Label("스티키", systemImage: model.selectedMeta?.sticky?.open == true ? "note.text.badge.plus" : "note.text")
+                }
+                .help(model.selectedMeta?.sticky?.open == true ? "스티키 다시 넣기 (⇧⌘S)" : "스티키로 꺼내기 (⇧⌘S)")
                 .disabled(model.selectedNote == nil)
                 Button {
                     if let p = model.selectedNote { model.trash(note: p) }

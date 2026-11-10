@@ -89,16 +89,32 @@ struct SidebarView: View {
                 // 떠 있는 스티키만 (FR-31). v0.x의 "꺼내 둔 메모"
                 Section("스티키 메모") {
                     ForEach(model.openStickies) { n in
-                        Button {
-                            model.selection = .all
-                            model.selectNote(n.path)
-                        } label: {
-                            HStack {
-                                Circle().fill(stickyColor(n.sticky?.color)).frame(width: 8, height: 8)
-                                Text(displayTitle(n)).lineLimit(1)
+                        HStack {
+                            Button {
+                                model.reveal(n.path)
+                            } label: {
+                                HStack {
+                                    Circle().fill(stickyColor(n.sticky?.color)).frame(width: 8, height: 8)
+                                    Text(displayTitle(n)).lineLimit(1)
+                                    Spacer(minLength: 0)
+                                }
+                                .contentShape(Rectangle())
                             }
+                            // 항상 위 고정. 스티키 막대의 핀과 같은 상태다 (FR-55)
+                            let onTop = n.sticky?.onTop == true
+                            Button {
+                                model.stickies.setOnTop(n.path, !onTop)
+                            } label: {
+                                Image(systemName: onTop ? "pin.fill" : "pin")
+                                    .foregroundStyle(onTop ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                            }
+                            .help(onTop ? "항상 위 고정 해제" : "항상 위에 고정")
+                            .accessibilityLabel("항상 위에 고정")
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("스티키 다시 넣기") { model.stickies.putBack(n.path) }
+                        }
                     }
                 }
             }

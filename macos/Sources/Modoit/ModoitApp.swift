@@ -93,17 +93,16 @@ struct ModoitApp: App {
             Button("새 메모") { model.menuNewNote() }
                 .keyboardShortcut("n")
                 .disabled(model.vault == nil)
-            // 스티키는 M7에서 붙인다
-            Button("새 스티키 메모") {}
+            Button("새 스티키 메모") { model.newStickyNote() }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
-                .disabled(true)
+                .disabled(model.vault == nil)
             Button("새 폴더") { model.menuNewFolder() }
                 .keyboardShortcut("n", modifiers: [.command, .option])
                 .disabled(model.vault == nil)
             Divider()
-            Button("스티키로 꺼내기") {}
+            Button(model.selectedMeta?.sticky?.open == true ? "스티키 다시 넣기" : "스티키로 꺼내기") { model.toggleStickyOfSelected() }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
-                .disabled(true)
+                .disabled(model.selectedNote == nil)
             // 메인 창에서 고른 메모에 적용된다 (F-11 R-2)
             Button(model.selectedMeta?.pinned == true ? "즐겨찾기에서 해제" : "즐겨찾기에 추가") { model.toggleFavoriteOfSelected() }
                 .keyboardShortcut("p", modifiers: [.command, .shift])

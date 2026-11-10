@@ -2,7 +2,7 @@ import Foundation
 
 // 네이티브 스티키 편집기의 "화면만 꾸미기" 규칙 (아키텍처 3.3, V2-10).
 // 저장하는 글자는 Markdown 원문 그대로다. 여기서는 한 줄을 보고 어느 글자를 숨기고 어떻게 꾸밀지,
-// 그리고 키 입력(Enter, 체크, 단축 입력)이 원문을 어떻게 바꾸는지만 계산한다. UI 코드는 없다.
+// 그리고 체크박스를 눌렀을 때 원문을 어떻게 바꾸는지만 계산한다. UI 코드는 없다. 스티키는 보기 전용이다 (D-25).
 // 위치는 모두 UTF-16 단위다(NSTextView의 NSRange와 같다).
 
 public enum StickyLineKind: Equatable, Sendable {
@@ -208,125 +208,36 @@ public func stickyToggleCheck(_ line: String) -> StickyEdit? {
     return StickyEdit(range: at..<(at + 1), text: checked ? " " : "x", cursor: at + 1)
 }
 
-/// 줄에서 Enter를 눌렀다. 목록이면 다음 항목 기호를 이어 주고, 빈 항목이면 목록에서 나온다.
-/// 기본 동작(줄바꿈만)이면 nil
-public func stickyNewline(_ line: String, cursor: Int) -> StickyEdit? {
-    let l = stickyLine(line)
-    let s = Array(line.utf16)
-    let prefix: String
-    switch l.kind {
-    case .bullet, .checkbox, .ordered:
-        guard cursor >= l.contentStart else { return nil }
-        let head = String(utf16CodeUnits: Array(s[..<l.contentStart]), count: l.contentStart)
-        let isEmpty = s[l.contentStart...].allSatisfy { $0 == space }
-        if isEmpty {
-            // 빈 항목에서 Enter: 한 단계 내어쓰거나 목록을 끝낸다
-            if l.depth > 0, let e = stickyIndent(line, cursor: cursor, deeper: false) { return e }
-            let keep = String(repeating: "> ", count: l.quoteDepth)
-            return StickyEdit(range: 0..<s.count, text: keep, cursor: keep.utf16.count)
+/// 문서에서 `index`번째(0부터) 체크박스를 `checked` 상태로 바꾼 본문. 그 줄의 한 글자만 바뀐다 (F-08 R-9).
+/// 코드 블록 안의 줄은 세지 않는다. 그 체크박스가 없거나 이미 그 상태면 nil(아무것도 바꾸지 않는다)
+public func toggleCheckbox(_ body: String, index: Int, checked: Bool) -> String? {
+    var units = Array(body.utf16)
+    var lineStart = 0
+    var n = 0
+    var fence: UInt16?
+    while lineStart <= units.count {
+        var end = lineStart
+        while end < units.count, units[end] != 10 { end += 1 }
+        var textEnd = end
+        if textEnd > lineStart, units[textEnd - 1] == 13 { textEnd -= 1 }
+        let line = String(utf16CodeUnits: Array(units[lineStart..<textEnd]), count: textEnd - lineStart)
+        let trimmed = line.drop { $0 == " " }
+        let lead = line.count - trimmed.count
+        if lead <= 3, trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+            let mark = trimmed.utf16.first!
+            if fence == nil { fence = mark } else if fence == mark { fence = nil }
+        } else if fence == nil {
+            let l = stickyLine(line)
+            if case .checkbox(let now) = l.kind, let at = l.checkMark {
+                if n == index {
+                    guard now != checked else { return nil }
+                    units[lineStart + at] = checked ? u("x") : space
+                    return String(utf16CodeUnits: units, count: units.count)
+                }
+                n += 1
+            }
         }
-        switch l.kind {
-        case .checkbox:
-            // 새 항목은 늘 체크하지 않은 상태
-            var h = Array(head.utf16)
-            if let at = l.checkMark { h[at] = space }
-            var str = String(utf16CodeUnits: h, count: h.count)
-            if !str.hasSuffix(" ") { str += " " }
-            prefix = str
-        case .ordered(let n):
-            let markerStart = l.contentStart - "\(n). ".utf16.count
-            let lead = String(utf16CodeUnits: Array(s[..<markerStart]), count: markerStart)
-            let sep = s[l.contentStart - 2] == u(")") ? ")" : "."
-            prefix = "\(lead)\(n + 1)\(sep) "
-        default:
-            prefix = head
-        }
-    case .paragraph where l.quoteDepth > 0:
-        if s[l.contentStart...].allSatisfy({ $0 == space }) { return StickyEdit(range: 0..<s.count, text: "", cursor: 0) }
-        prefix = String(repeating: "> ", count: l.quoteDepth)
-    default:
-        return nil
+        lineStart = end + 1
     }
-    let insert = "\n" + prefix
-    return StickyEdit(range: cursor..<cursor, text: insert, cursor: cursor + insert.utf16.count)
-}
-
-/// Tab·Shift-Tab: 목록 항목을 한 단계(공백 2칸) 들이거나 내어쓴다. 목록이 아니면 nil
-public func stickyIndent(_ line: String, cursor: Int, deeper: Bool) -> StickyEdit? {
-    let l = stickyLine(line)
-    switch l.kind {
-    case .bullet, .checkbox, .ordered: break
-    default: return nil
-    }
-    let s = Array(line.utf16)
-    // 인용 기호 뒤가 들여쓰기 자리다
-    var at = 0
-    var q = 0
-    while q < l.quoteDepth, at < s.count {
-        if s[at] == u(">") { q += 1 }
-        at += 1
-    }
-    if q > 0, at < s.count, s[at] == space { at += 1 }
-    if deeper { return StickyEdit(range: at..<at, text: "  ", cursor: cursor + 2) }
-    let spaces = s[at...].prefix { $0 == space }.count
-    let remove = min(2, spaces)
-    guard remove > 0 else { return nil }
-    return StickyEdit(range: at..<(at + remove), text: "", cursor: max(at, cursor - remove))
-}
-
-/// 본문 맨 앞에서 Backspace: 목록·제목·인용 기호를 지워 보통 문단으로 만든다. 해당 없으면 nil
-public func stickyBackspaceAtContentStart(_ line: String, cursor: Int) -> StickyEdit? {
-    let l = stickyLine(line)
-    guard cursor == l.contentStart, l.contentStart > 0 else { return nil }
-    switch l.kind {
-    case .rule, .blank: return nil
-    case .paragraph where l.quoteDepth == 0: return nil
-    default: break
-    }
-    if l.depth > 0, let e = stickyIndent(line, cursor: cursor, deeper: false) { return e }
-    return StickyEdit(range: 0..<l.contentStart, text: "", cursor: 0)
-}
-
-/// 방금 `typed`(공백 등)를 쳐서 줄 앞부분이 단축 입력이 되었는지 (F-06 4.1).
-/// `line`은 친 글자가 이미 들어간 상태, `cursor`는 그 뒤다. 메인 편집기와 같은 Markdown이 되어야 한다 (F-06 R-1).
-public func stickyShortcut(_ line: String, cursor: Int) -> StickyEdit? {
-    let s = Array(line.utf16)
-    guard cursor <= s.count, cursor > 0 else { return nil }
-    let l = stickyLine(line)
-    let before = String(utf16CodeUnits: Array(s[..<cursor]), count: cursor)
-    // 글자 안 변환: -> → →, <- → ← (코드 안은 제외)
-    if before.hasSuffix("->") || before.hasSuffix("<-") {
-        let inCode = stickyInlines(line).contains { $0.kind == .code && $0.range.contains(cursor - 1) }
-            || before.filter({ $0 == "`" }).count % 2 == 1
-        if !inCode {
-            let arrow = before.hasSuffix("->") ? "→" : "←"
-            return StickyEdit(range: (cursor - 2)..<cursor, text: arrow, cursor: cursor - 1)
-        }
-    }
-    // 아래는 줄 맨 앞(들여쓰기·인용 뒤)에서 "기호 + 공백"을 쳤을 때만
-    guard s[cursor - 1] == space else { return nil }
-    var start = 0
-    switch l.kind {
-    case .bullet, .ordered, .checkbox:
-        // 목록 안에서 `[] `를 치면 체크박스로
-        start = l.contentStart
-    default:
-        start = l.contentStart
-        while start < s.count, s[start] == space, start < cursor - 1 { start += 1 }
-    }
-    guard start < cursor else {
-        // `- [ ]`처럼 이미 체크박스로 읽힌 직후
-        return nil
-    }
-    let typed = String(utf16CodeUnits: Array(s[start..<cursor]), count: cursor - start)
-    let inList: Bool = { if case .bullet = l.kind { return true } else { return false } }()
-    func replace(_ text: String) -> StickyEdit {
-        StickyEdit(range: start..<cursor, text: text, cursor: start + text.utf16.count)
-    }
-    switch typed {
-    case "[] ", "[ ] ": return replace(inList ? "[ ] " : "- [ ] ")
-    case "[x] ", "[X] ": return replace(inList ? "[x] " : "- [x] ")
-    case "| ": return inList ? nil : replace("> ")
-    default: return nil
-    }
+    return nil
 }

@@ -26,6 +26,8 @@ export interface LoadMessage {
   forceEditable?: boolean;
   /** 열자마자 커서를 넣을지 (새 메모) */
   focus?: boolean;
+  /** 보기 전용(스티키). 체크박스를 누르면 `check`, 두 번 누르면 `open`을 보낸다 (D-25) */
+  viewer?: boolean;
   prefs?: Prefs;
 }
 

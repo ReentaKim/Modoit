@@ -22,7 +22,7 @@
 | 앱 셸 | Tauri 2 | SwiftUI + 필요한 곳만 AppKit(NSPanel, NSTextView, 종료 처리) |
 | 코어 로직 | Rust `src-tauri/src` | Swift 패키지 `ModoitCore` (UI 없음, 플랫폼 중립) |
 | 메인 편집기 | TipTap 3 (React) | **같은 TipTap 코드**(`src/editor`)를 WKWebView에 |
-| 스티키 편집기 | TipTap(창마다 하나) | 네이티브(NSTextView). 어려운 서식이 있는 메모만 TipTap([F-08](../product/features/F-08-sticky.md) 3.2) |
+| 스티키 화면 | TipTap(창마다 하나) | 네이티브(NSTextView). 어려운 서식이 있는 메모만 TipTap([F-08](../product/features/F-08-sticky.md) 3.2). 보기 전용이고 체크만 한다(D-25) |
 | 스티키 창 | NSPanel(비공개 API) | NSPanel(공개 API만, NFR-19) |
 | 파일 감시 | notify(FSEvents) | FSEvents |
 | 최소 OS | macOS 13 | macOS 15 (D-09) |
@@ -68,7 +68,7 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 | Layout | `.modoit/layout.json` | `layout.rs`, `sidebar.ts` | cargo, vitest |
 | Merge | 줄 단위 3-way 병합, 충돌은 양쪽 보존 | `merge.ts`(node-diff3) | vitest `v03Session.test.ts` |
 | Classify | 스티키 편집기 방식 판정(허용 목록). 읽기 전용 판정(FR-43)은 옮기지 않는다: TipTap이 실제로 열어 보고 정하므로 편집기 쪽(`markdownSafety.ts`, `editability.ts`)에 그대로 둔다 | 새로 작성 | 새로 작성 |
-| StickyMarkup | 네이티브 스티키의 줄 해석, 편집 규칙 | 새로 작성(F-06 4.1의 단축 입력과 같은 결과) | 새로 작성 |
+| StickyMarkup | 네이티브 스티키의 줄 해석, 체크박스 한 글자 바꾸기 | 새로 작성 | 새로 작성 |
 | Config | `config.json` 읽기·쓰기, 범위 밖 값 보정 | `config.rs`, `prefs.ts` | cargo |
 
 - 옮긴 수는 cargo 45개 + 순수 로직 vitest다. 스파이크에서 13개를 이미 옮겨 통과했다.
@@ -90,6 +90,8 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 - 저장 규칙(0.5초, 즉시 저장 시점, 3초 재시도, 사라진 파일 다시 만들기)은 [Brief 3.2](../product/brief.md)와 [F-07](../product/features/F-07-save-sync.md) 그대로다.
 
 ### 3.3 네이티브 스티키 편집기 (V2-10)
+> **2026-11-11 변경(D-25):** 스티키는 보기 전용이 됐다. 아래에서 입력에 관한 항목(단축 입력, 한글 조합, 편집 규칙)은 쓰지 않는다. "원문 그대로 + 화면만 꾸밈"과 체크박스 한 글자 바꾸기, 방식 판정은 그대로다. TipTap 스티키의 체크도 편집기가 문서를 다시 쓰지 않고 Swift가 원문의 그 줄만 바꾼다.
+
 - 저장하는 글자 = 화면의 글자다. `NSTextView`의 내용이 곧 Markdown 원문이고, 서식 기호(`- [ ] `, `**`, `# `)는 **숨기거나 그림으로 바꿔 보이게만** 한다.
 - 그래서 "고친 줄만 다시 쓴다"(F-08 R-9, NFR-21)가 구조에서 저절로 지켜진다. 고치지 않은 줄은 한 글자도 바뀌지 않는다.
 - 체크박스는 누를 수 있는 그림으로 그리고, 누르면 원문의 `[ ]` ↔ `[x]` 한 글자만 바꾼다.

@@ -29,7 +29,9 @@ function show(m: LoadMessage) {
   if (m.prefs) applyPrefs(m.prefs);
   document.body.classList.toggle("compact", m.compact);
   base = m.markdown;
-  const doc: Doc = { ...m, key: ++seq, readOnly: unsupported.length > 0 };
+  const doc: Doc = { ...m, key: ++seq, readOnly: unsupported.length > 0 || !!m.viewer };
+  // 보기 전용 화면은 다시 그려도 스크롤 위치를 지킨다
+  keepScroll = m.viewer && current ? scroller()?.scrollTop ?? null : null;
   current = doc;
   // 지원하지 않는 서식이 있으면 읽기 전용으로 열고 이유를 알린다 (FR-43)
   post({ type: "opened", key: doc.key, unsupported });
@@ -41,6 +43,28 @@ function applyUpdate(markdown: string) {
   // 다른 편집기(스티키)나 다른 앱이 고친 본문. 문서를 다시 그린다
   show({ ...current, markdown, focus: false });
 }
+
+function scroller(): Element | null {
+  return document.querySelector(".editor-host") ?? document.scrollingElement;
+}
+let keepScroll: number | null = null;
+
+// 보기 전용(스티키): 체크박스는 Swift가 원문의 그 줄 한 글자만 바꾼다. 편집기는 문서를 고치지 않는다
+document.addEventListener(
+  "change",
+  (e) => {
+    const t = e.target as HTMLInputElement | null;
+    if (!current?.viewer || !t || t.type !== "checkbox") return;
+    const item = t.closest('li[data-type="taskItem"]');
+    if (!item) return;
+    const index = Array.from(document.querySelectorAll('li[data-type="taskItem"]')).indexOf(item);
+    if (index >= 0) post({ type: "check", index, checked: t.checked });
+  },
+  true,
+);
+document.addEventListener("dblclick", () => {
+  if (current?.viewer) post({ type: "open" });
+});
 
 document.addEventListener("compositionstart", () => (composing = true), true);
 document.addEventListener(
@@ -67,7 +91,11 @@ window.modoit = {
     if (composing) pendingUpdate = markdown;
     else applyUpdate(markdown);
   },
-  prefs: (p) => applyPrefs(p),
+  prefs: (p) => {
+    // 다시 그릴 때 옛 설정으로 돌아가지 않게 기억해 둔다
+    if (current) current.prefs = p;
+    applyPrefs(p);
+  },
   // 제목이 바뀌어 파일 이름이 바뀌었다. 이미지 경로 계산에 쓰는 메모 경로를 맞춘다
   moved: (notePath) => {
     if (current) current.notePath = notePath;
@@ -88,7 +116,12 @@ function Host() {
   // 문서를 DOM에 넣은 뒤 알린다 (실행 시간 측정, NFR-18).
   // requestAnimationFrame은 창이 가려지면 멈추므로 쓰지 않는다.
   useEffect(() => {
-    if (doc) post({ type: "loaded", key: doc.key });
+    if (!doc) return;
+    if (keepScroll !== null) {
+      const s = scroller();
+      if (s) s.scrollTop = keepScroll;
+    }
+    post({ type: "loaded", key: doc.key });
   }, [doc?.key]);
   if (!doc) return null;
   return (

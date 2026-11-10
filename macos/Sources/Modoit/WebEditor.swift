@@ -13,6 +13,10 @@ final class WebEditor: NSObject, WKScriptMessageHandler {
     /// 문서를 다 그렸다
     var onLoaded: (() -> Void)?
     var onError: ((String) -> Void)?
+    /// 보기 전용(스티키)에서 n번째 체크박스를 눌렀다: (순서, 바꿀 상태)
+    var onCheck: ((Int, Bool) -> Void)?
+    /// 보기 전용(스티키)에서 두 번 눌렀다
+    var onOpen: (() -> Void)?
     /// 저장 폴더의 절대 경로. 이미지와 첨부 저장의 범위다
     var vault: String? {
         didSet { schemes.vault = vault }
@@ -45,7 +49,8 @@ final class WebEditor: NSObject, WKScriptMessageHandler {
         if isReady { webView.evaluateJavaScript(js) } else { pending = (pending ?? []) + [js] }
     }
 
-    func load(markdown: String, notePath: String?, compact: Bool = false, forceEditable: Bool = false, focus: Bool = false, prefs: Prefs) {
+    func load(markdown: String, notePath: String?, compact: Bool = false, forceEditable: Bool = false, focus: Bool = false,
+              viewer: Bool = false, prefs: Prefs) {
         var doc: [String: Any] = [
             "markdown": markdown,
             "notePath": notePath as Any? ?? NSNull(),
@@ -53,6 +58,7 @@ final class WebEditor: NSObject, WKScriptMessageHandler {
             "compact": compact,
             "forceEditable": forceEditable,
             "focus": focus,
+            "viewer": viewer,
         ]
         doc["prefs"] = prefsObject(prefs)
         run("window.modoit.load(\(json(doc)))")
@@ -88,6 +94,10 @@ final class WebEditor: NSObject, WKScriptMessageHandler {
             onLoaded?()
         case "change":
             if let md = body["markdown"] as? String { onChange?(md, body["base"] as? String ?? md) }
+        case "check":
+            if let i = body["index"] as? Int, let on = body["checked"] as? Bool { onCheck?(i, on) }
+        case "open":
+            onOpen?()
         case "invoke":
             handleInvoke(body)
         case "error":
