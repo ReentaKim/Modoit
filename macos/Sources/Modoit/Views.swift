@@ -60,80 +60,6 @@ struct MainView: View {
     }
 }
 
-struct SidebarView: View {
-    @Bindable var model: AppModel
-
-    var body: some View {
-        List(selection: $model.selection) {
-            Label("모든 메모", systemImage: "tray.full")
-                .badge(model.tree.notes.count)
-                .tag(SidebarSelection.all)
-            // 모든 폴더의 즐겨찾기 메모만 (FR-54)
-            Label("즐겨찾기", systemImage: "star")
-                .badge(model.favoriteCount)
-                .tag(SidebarSelection.favorites)
-
-            Section("폴더") {
-                ForEach(model.sidebarRows) { row in
-                    switch row.kind {
-                    case .separator:
-                        Divider()
-                    case .folder(let path, let name, let hasChildren, let expanded):
-                        HStack(spacing: 4) {
-                            Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 12)
-                                .opacity(hasChildren ? 1 : 0)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    if expanded { model.collapsed.insert(path) } else { model.collapsed.remove(path) }
-                                }
-                            Label(name, systemImage: "folder")
-                        }
-                        .padding(.leading, CGFloat(row.depth) * 14)
-                        .badge(model.count(in: path))
-                        .tag(SidebarSelection.folder(path))
-                    }
-                }
-            }
-
-            if !model.openStickies.isEmpty {
-                // 떠 있는 스티키만 (FR-31). v0.x의 "꺼내 둔 메모"
-                Section("스티키 메모") {
-                    ForEach(model.openStickies) { n in
-                        Button {
-                            model.selection = .all
-                            model.selectNote(n.path)
-                        } label: {
-                            HStack {
-                                Circle().fill(stickyColor(n.sticky?.color)).frame(width: 8, height: 8)
-                                Text(displayTitle(n)).lineLimit(1)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            // 저장 폴더 이름. 누르면 폴더 변경 (FR-02)
-            Button {
-                model.chooseVault()
-            } label: {
-                Label(((model.vault ?? "") as NSString).lastPathComponent, systemImage: "externaldrive")
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .help(model.vault ?? "")
-        }
-    }
-}
-
 func stickyColor(_ name: String?) -> Color {
     switch name {
     case "pink": .pink
@@ -154,6 +80,8 @@ struct NoteListView: View {
                     ForEach(group.notes) { n in
                         NoteRow(note: n, sort: model.sort)
                             .tag(n.path)
+                            // 사이드바 폴더로 끌어 옮긴다 (FR-36)
+                            .onDrag { DragPayload.note(n.path).provider }
                             .contextMenu {
                                 Button(n.pinned ? "즐겨찾기에서 해제" : "즐겨찾기에 추가") { model.setFavorite(n.path, !n.pinned) }
                                 Divider()

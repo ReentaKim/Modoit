@@ -1,5 +1,6 @@
 import AppKit
 import ModoitCore
+import ModoitKit
 import WebKit
 
 /// `--selftest`: 실제 앱에서 메모를 고르고, 편집기에 글자를 넣고, 파일에 저장되는지 본다.
@@ -128,6 +129,40 @@ final class SelfTest {
         model.selectNote("메모/각주.md")
         _ = await wait("각주 메모") { self.model.loadedCount > l4 }
         check("읽기 전용 안내", !model.unsupported.isEmpty, "\(model.unsupported)")
+
+        // 6-1. 폴더 (F-03): 만들기, 이름 변경, 옮기기, 구분선
+        model.createFolder(parent: "", name: "프로젝트")
+        check("폴더 만들기 → 선택", model.selection == .folder("프로젝트") && FileManager.default.fileExists(atPath: vault + "/프로젝트"))
+        model.createFolder(parent: "프로젝트", name: "..")
+        check("잘못된 폴더 이름은 거부", !FileManager.default.fileExists(atPath: vault + "/프로젝트/.."+"x") && model.notice != nil)
+        // 메모를 폴더로 옮긴다: 선택이 따라가고 이미지 링크가 새 위치 기준이 된다 (FR-36)
+        try? atomicWrite("# 그림 메모\n![](../attachments/a.png)\n", to: vault + "/메모/그림 메모.md")
+        try? atomicWrite(Data([1]), to: vault + "/attachments/a.png")
+        model.refresh()
+        model.selection = .all
+        let l6 = model.loadedCount
+        model.selectNote("메모/그림 메모.md")
+        _ = await wait("그림 메모") { self.model.loadedCount > l6 }
+        try? FileManager.default.createDirectory(atPath: vault + "/프로젝트/세부", withIntermediateDirectories: true)
+        model.refresh()
+        model.moveNote("메모/그림 메모.md", toFolder: "프로젝트/세부")
+        check("메모 옮기기: 선택이 따라간다", model.selectedNote == "프로젝트/세부/그림 메모.md", model.selectedNote ?? "nil")
+        check("메모 옮기기: 링크를 고친다", read("프로젝트/세부/그림 메모.md").contains("![](../../attachments/a.png)"), read("프로젝트/세부/그림 메모.md").debugDescription)
+        // 열린 메모가 든 폴더의 이름을 바꾼다: 세션 경로가 따라가 새 자리에 저장된다 (F-03 R-4)
+        model.renameFolder("프로젝트", to: "일")
+        check("폴더 이름 변경: 선택이 따라간다", model.selectedNote == "일/세부/그림 메모.md", model.selectedNote ?? "nil")
+        _ = await js("(()=>{const e=document.querySelector('.modoit-editor');e.focus();const s=window.getSelection();s.selectAllChildren(e);s.collapseToEnd();document.execCommand('insertText',false,' 이름바꾼뒤');return 1})()")
+        _ = await wait("바뀐 경로에 저장") { self.read("일/세부/그림 메모.md").contains("이름바꾼뒤") }
+        check("이름 바꾼 뒤 입력은 새 경로에 저장", read("일/세부/그림 메모.md").contains("이름바꾼뒤") && !FileManager.default.fileExists(atPath: vault + "/프로젝트"))
+        // 폴더를 다른 폴더 안으로 (FR-27)
+        model.moveFolder("일", toParent: "업무", before: nil, into: true)
+        check("폴더를 안으로: 선택이 따라간다", model.selectedNote == "업무/일/세부/그림 메모.md", model.selectedNote ?? "nil")
+        check("자기 하위로는 못 옮긴다", { model.moveFolder("업무", toParent: "업무/일", before: nil, into: true); return FileManager.default.fileExists(atPath: vault + "/업무/일") }())
+        // 순서와 구분선 (FR-28, 29)
+        model.moveFolder("업무", toParent: "", before: "메모", into: false)
+        check("순서 바꾸기", model.sidebarRows.filter { $0.depth == 0 }.map(\.id).prefix(2) == ["f:업무", "f:메모"], "\(model.sidebarRows.map(\.id))")
+        model.setLayout(addSeparator(model.tree.folders, model.tree.layout, parent: "", after: "업무"))
+        check("구분선 추가", model.sidebarRows.filter { $0.depth == 0 }.count == 3 && read(".modoit/layout.json").contains("sep:"), read(".modoit/layout.json"))
 
         // 7. 휴지통 대신: 종료 전 저장이 남은 입력을 쓴다 (F-12)
         let l5 = model.loadedCount

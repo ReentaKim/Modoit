@@ -13,7 +13,8 @@ rm -rf Sources/Modoit/Resources/editor/assets Sources/Modoit/Resources/editor/in
 swift build -c "$MODE" --product Modoit
 BIN="$(swift build -c "$MODE" --show-bin-path)"
 
-APP=build/Modoit.app
+# OUT=build/다른이름.app 으로 주면 실행 중인 앱을 건드리지 않고 따로 만든다
+APP="${OUT:-build/Modoit.app}"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/Modoit" "$APP/Contents/MacOS/"

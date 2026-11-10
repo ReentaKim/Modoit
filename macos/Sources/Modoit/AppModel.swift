@@ -169,7 +169,7 @@ final class AppModel {
     }
 
     private func createFolderIfMissing(_ vault: String) throws {
-        if !isDir(vault + "/" + defaultFolder) { _ = try createFolder(vault: vault, parent: "", name: defaultFolder) }
+        if !isDir(vault + "/" + defaultFolder) { _ = try ModoitCore.createFolder(vault: vault, parent: "", name: defaultFolder) }
     }
 
     private func saveConfig() {
@@ -344,6 +344,138 @@ final class AppModel {
     func setSort(_ s: NoteSort) {
         config.prefs.noteSort = s.rawValue
         saveConfig()
+    }
+
+    // MARK: 폴더 (F-03)
+
+    private func fail(_ what: String, _ error: Error) {
+        show(notice: "\(what): \(error)")
+    }
+
+    /// 이름 변경·이동(from → to)을 선택, 펼침 상태, 열린 세션에 반영한다 (F-03 R-4)
+    private func pathMoved(from: String, to: String) {
+        func remap(_ p: String) -> String? {
+            if p == from { return to }
+            if p.hasPrefix(from + "/") { return to + p.dropFirst(from.count) }
+            return nil
+        }
+        store?.applyMove(from: from, to: to)
+        if case .folder(let p) = selection, let np = remap(p) { selection = .folder(np) }
+        if let n = selectedNote, let np = remap(n) {
+            selectedNote = np
+            editor.moved(to: np)
+            rememberSelection()
+        }
+        collapsed = Set(collapsed.map { remap($0) ?? $0 })
+    }
+
+    func createFolder(parent: String, name: String) {
+        guard let vault else { return }
+        do {
+            let p = try ModoitCore.createFolder(vault: vault, parent: parent, name: name)
+            collapsed.remove(parent)
+            refresh()
+            selection = .folder(p)
+        } catch {
+            fail("폴더를 만들 수 없습니다", error)
+        }
+    }
+
+    func renameFolder(_ path: String, to name: String) {
+        guard let vault, let store else { return }
+        store.flushAll()
+        do {
+            let np = try ModoitCore.renameFolder(vault: vault, path, to: name)
+            if np != path { pathMoved(from: path, to: np) }
+            refresh()
+        } catch {
+            fail("이름을 바꿀 수 없습니다", error)
+        }
+    }
+
+    /// 그 폴더와 하위 폴더에 든 메모 수(삭제 확인에 쓴다)
+    func noteCount(under path: String) -> Int {
+        tree.notes.count { $0.folder == path || $0.folder.hasPrefix(path + "/") }
+    }
+
+    /// 폴더를 휴지통으로. 메모가 있으면 `confirmed`가 true여야 한다 (FR-26)
+    func trashFolder(_ path: String) {
+        guard let vault, let store else { return }
+        store.flushAll()
+        // 그 안 메모의 세션은 저장 없이 닫는다 (Brief 3.3-4)
+        if let n = selectedNote, n.hasPrefix(path + "/") {
+            if let s = session { session = nil; s.detach(editorID) }
+            selectedNote = nil
+        }
+        store.discardUnder(path)
+        do {
+            try ModoitCore.trashFolder(vault: vault, path)
+        } catch {
+            fail("휴지통으로 보낼 수 없습니다", error)
+        }
+        if case .folder(let p) = selection, p == path || p.hasPrefix(path + "/") { selection = .all }
+        refresh()
+    }
+
+    func setLayout(_ layout: Layout) {
+        guard let vault else { return }
+        do {
+            try saveLayout(vault: vault, layout)
+        } catch {
+            fail("순서를 저장할 수 없습니다", error)
+        }
+        refresh()
+    }
+
+    /// 폴더를 끌어 놓았다. destParent 안의 before 앞(nil이면 맨 뒤)에. into = 폴더 위에 놓아 안으로 옮긴 것 (FR-27)
+    func moveFolder(_ path: String, toParent destParent: String, before: String?, into: Bool) {
+        guard let vault, let store else { return }
+        // 자기 자신·하위 폴더 안으로는 옮길 수 없다
+        if destParent == path || destParent.hasPrefix(path + "/") { return }
+        var name = (path as NSString).lastPathComponent
+        do {
+            if parentRel(path) != destParent {
+                store.flushAll()
+                let m = try moveEntry(vault: vault, from: path, toFolder: destParent)
+                name = (m.to as NSString).lastPathComponent
+                pathMoved(from: m.from, to: m.to)
+            }
+            let t = try listTree(vault: vault)
+            try saveLayout(vault: vault, reorder(t.folders, t.layout, parent: destParent, key: name, before: before, into: into))
+            if into { collapsed.remove(destParent) }
+        } catch {
+            fail("폴더를 옮길 수 없습니다", error)
+        }
+        refresh()
+    }
+
+    func moveSeparator(_ id: String, from fromParent: String, toParent destParent: String, before: String?) {
+        var l = tree.layout
+        if fromParent != destParent {
+            // 옛 부모의 현재 순서를 고정한 뒤 빼낸다
+            l.order[fromParent] = customSequence(parent: fromParent, childrenOf(tree.folders, parent: fromParent), l).map(\.key)
+            l = removeKey(l, parent: fromParent, key: id)
+        }
+        setLayout(reorder(tree.folders, l, parent: destParent, key: id, before: before))
+    }
+
+    /// 메모를 폴더로 끌어 옮긴다. 이미지 링크를 새 위치 기준으로 고친다 (FR-36)
+    func moveNote(_ path: String, toFolder dest: String) {
+        guard let vault, let store else { return }
+        // 입력을 먼저 저장한다. 저장하며 이름이 바뀔 수 있으므로 저장 뒤의 경로를 쓴다 (BUG-28)
+        let s = store.existing(path)
+        s?.flush()
+        let current = s?.path ?? path
+        if parentRel(current) == dest { return }
+        do {
+            let m = try moveEntry(vault: vault, from: current, toFolder: dest)
+            pathMoved(from: m.from, to: m.to)
+            // 옮기면서 링크를 고쳐 썼다. 열려 있는 편집기에 새 내용을 보여 준다
+            store.diskChanged([m.to])
+        } catch {
+            fail("메모를 옮길 수 없습니다", error)
+        }
+        refresh()
     }
 
     // MARK: 다시 켜면 이어서 (FR-53)
