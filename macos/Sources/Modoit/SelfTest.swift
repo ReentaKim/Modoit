@@ -56,7 +56,7 @@ final class SelfTest {
     }
 
     private func snapshot(to out: String) async {
-        if let w = NSApp.windows.first(where: { $0.isVisible && $0.title == "Modoit" }), let v = w.contentView,
+        if let w = NSApp.windows.first(where: { $0.isVisible && $0.identifier?.rawValue == "main" }), let v = w.contentView,
            let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
             v.cacheDisplay(in: v.bounds, to: rep)
             try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
@@ -69,7 +69,7 @@ final class SelfTest {
 
     private func body() async {
         guard let vault = model.vault else { return check("저장 폴더", false) }
-        check("메인 창이 떠 있다", NSApp.windows.contains { $0.isVisible && $0.title == "Modoit" }, NSApp.windows.map { "\($0.title)|\($0.isVisible)" }.joined(separator: ", "))
+        check("메인 창이 떠 있다", NSApp.windows.contains { $0.isVisible && $0.identifier?.rawValue == "main" }, NSApp.windows.map { "\($0.title)|\($0.isVisible)" }.joined(separator: ", "))
         check("목록을 읽었다", model.tree.notes.count >= 2, "\(model.tree.notes.count)개")
         check("기본 폴더가 있다", FileManager.default.fileExists(atPath: vault + "/메모"))
 
@@ -163,6 +163,64 @@ final class SelfTest {
         check("순서 바꾸기", model.sidebarRows.filter { $0.depth == 0 }.map(\.id).prefix(2) == ["f:업무", "f:메모"], "\(model.sidebarRows.map(\.id))")
         model.setLayout(addSeparator(model.tree.folders, model.tree.layout, parent: "", after: "업무"))
         check("구분선 추가", model.sidebarRows.filter { $0.depth == 0 }.count == 3 && read(".modoit/layout.json").contains("sep:"), read(".modoit/layout.json"))
+
+        // 6-2. 설정 (F-10): 저장, 앱 전체 모양, 편집기 강조 색
+        model.updatePrefs { $0.theme = "dark"; $0.accent = "blue"; $0.fontSize = 99 }
+        let conf = (try? String(contentsOfFile: model.configPath, encoding: .utf8)) ?? ""
+        check("설정 저장 (범위 밖 크기는 22로)", conf.contains("\"theme\" : \"dark\"") && conf.contains("\"accent\" : \"blue\"") && conf.contains("\"fontSize\" : 22"), conf)
+        check("모양: 앱 전체가 다크", NSApp.appearance?.name == .darkAqua)
+        _ = await wait("편집기 다크", timeout: 3) { self.model.editor.webView.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+        try? await Task.sleep(for: .milliseconds(200))
+        let look = await js("document.documentElement.dataset.accent + '|' + matchMedia('(prefers-color-scheme: dark)').matches + '|' + getComputedStyle(document.documentElement).getPropertyValue('--font-size')")
+        check("편집기에 강조 색·다크·글자 크기 적용", look == "blue|true|22px", look)
+        if let out = LaunchOptions.current.snapshot { await snapshot(to: out.replacingOccurrences(of: ".png", with: "-dark.png")) }
+        model.updatePrefs { $0.theme = "system"; $0.accent = "yellow"; $0.fontSize = 17 }
+        check("모양: 시스템 설정으로 되돌림", NSApp.appearance == nil)
+
+        // 6-3. 파일 감시 (FR-22): 다른 앱이 고친 내용이 열린 편집기와 목록에 반영된다
+        let open = model.selectedNote ?? ""
+        try? atomicWrite(read(open) + "\n밖에서 덧붙임\n", to: vault + "/" + open)
+        let shown = await wait("밖에서 고친 내용") { self.model.session?.body.contains("밖에서 덧붙임") == true }
+        try? await Task.sleep(for: .milliseconds(300))
+        let seen = await js("document.querySelector('.modoit-editor').innerText")
+        check("밖에서 고친 내용이 편집기에 보인다", shown && seen.contains("밖에서 덧붙임"), seen.debugDescription)
+        try? atomicWrite("# 밖에서 만든 메모\n", to: vault + "/메모/밖에서 만든 메모.md")
+        let listed = await wait("밖에서 만든 메모") { self.model.tree.notes.contains { $0.path == "메모/밖에서 만든 메모.md" } }
+        check("밖에서 만든 메모가 목록에 뜬다", listed)
+        unlink(vault + "/메모/밖에서 만든 메모.md")
+        let gone = await wait("밖에서 지운 메모") { !self.model.tree.notes.contains { $0.path == "메모/밖에서 만든 메모.md" } }
+        check("밖에서 지운 메모가 목록에서 빠진다", gone)
+
+        // 6-4. 메뉴 (F-11)
+        let menus = (NSApp.mainMenu?.items ?? []).map { m in m.title + "[" + (m.submenu?.items ?? []).map { $0.isSeparatorItem ? "-" : $0.title + ($0.keyEquivalent.isEmpty ? "" : "(\($0.keyEquivalent))") }.joined(separator: ", ") + "]" }
+        log("  메뉴: " + menus.joined(separator: "\n        "))
+        let all = menus.joined()
+        check("메뉴 항목이 있다", ["새 메모", "새 폴더", "저장 폴더 변경…", "찾기", "사이드바 보기·가리기", "모양", "메인 창", "설정…"].allSatisfy { all.contains($0) })
+        model.menuToggleSidebar()
+        check("사이드바 가리기는 설정에 남는다", model.prefs.sidebarCollapsed)
+        model.menuToggleSidebar()
+
+        // 창 제목은 고른 항목이다 (F-02 R-4)
+        model.selection = .folder("업무")
+        try? await Task.sleep(for: .milliseconds(300))
+        let title = NSApp.windows.first { $0.identifier?.rawValue == "main" }?.title ?? ""
+        check("창 제목 = 고른 폴더", title == "업무", title)
+        model.selection = .all
+
+        // 6-5. 메인 창을 닫아도 앱은 살아 있고 다시 열린다 (FR-42)
+        let main = { NSApp.windows.first { $0.identifier?.rawValue == "main" } }
+        check("메인 창을 찾는다", main() != nil, NSApp.windows.map { "\($0.identifier?.rawValue ?? "-")" }.joined(separator: ","))
+        main()?.performClose(nil)
+        _ = await wait("닫힘", timeout: 2) { main()?.isVisible != true }
+        check("메인 창이 닫혔다", main()?.isVisible != true)
+        model.showMainWindow()
+        let back = await wait("다시 열림", timeout: 3) { main()?.isVisible == true }
+        try? await Task.sleep(for: .milliseconds(400))
+        let again = await js("document.querySelector('.modoit-editor').innerText")
+        check("메인 창이 다시 열리고 편집기가 그대로다", back && again.contains("밖에서 덧붙임"), again.debugDescription)
+        model.menuFind()
+        try? await Task.sleep(for: .milliseconds(500))
+        check("찾기: 검색 칸에 커서", main()?.firstResponder is NSTextView, "\(String(describing: main()?.firstResponder))")
 
         // 7. 휴지통 대신: 종료 전 저장이 남은 입력을 쓴다 (F-12)
         let l5 = model.loadedCount

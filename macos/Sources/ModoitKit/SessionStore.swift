@@ -81,8 +81,10 @@ public final class SessionStore {
         }
     }
 
-    /// 파일 감시: 바뀐 메모를 열린 세션에 알린다
+    /// 파일 감시: 바뀐 메모를 열린 세션에 알린다.
+    /// 경로는 한글 정규화(NFC·NFD)가 달라도 같은 것으로 본다. 감시가 알려 주는 이름과 우리가 아는 이름의
+    /// 정규화가 다를 수 있고, 잘못 맞아도 파일을 한 번 더 읽을 뿐이다
     public func diskChanged(_ paths: [String]? = nil) {
-        for s in sessions where paths == nil || paths!.contains(where: { $0.sameBytes(s.path) }) { s.diskChanged() }
+        for s in sessions where paths == nil || paths!.contains(where: { $0 == s.path }) { s.diskChanged() }
     }
 }

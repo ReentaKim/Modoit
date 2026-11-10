@@ -107,20 +107,35 @@ struct SidebarView: View {
             Button("새 폴더") { ask(.create(parent: "")) }
         }
         .safeAreaInset(edge: .bottom) {
-            // 저장 폴더 이름. 누르면 폴더 변경 (FR-02)
-            Button {
-                model.chooseVault()
-            } label: {
-                Label(((model.vault ?? "") as NSString).lastPathComponent, systemImage: "externaldrive")
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                // 저장 폴더 이름. 누르면 폴더 변경 (FR-02)
+                Button {
+                    model.chooseVault()
+                } label: {
+                    Label(((model.vault ?? "") as NSString).lastPathComponent, systemImage: "externaldrive")
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .help(model.vault ?? "")
+                .contextMenu {
+                    Button("Finder에서 보기") { model.revealInFinder(nil) }
+                    Button("저장 폴더 변경…") { model.chooseVault() }
+                }
+                // 화면 안의 설정 버튼 (F-10 R-1)
+                SettingsLink {
+                    Image(systemName: "gearshape")
+                }
+                .help("설정 (⌘,)")
+                .accessibilityLabel("설정")
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .help(model.vault ?? "")
         }
+        // 파일 > 새 폴더 (⌥⌘N)
+        .onChange(of: model.newFolderRequest) { ask(.create(parent: "")) }
         .alert(namingTitle, isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })) {
             TextField("폴더 이름", text: $nameText)
             Button("취소", role: .cancel) { naming = nil }
@@ -188,6 +203,7 @@ struct SidebarView: View {
             .contextMenu {
                 Button("새 하위 폴더") { ask(.create(parent: path)) }
                 Button("이름 변경") { ask(.rename(path: path), initial: name) }
+                Button("Finder에서 보기") { model.revealInFinder(path) }
                 Button("아래에 구분선 추가") {
                     model.setLayout(addSeparator(model.tree.folders, model.tree.layout, parent: row.parent, after: name))
                 }

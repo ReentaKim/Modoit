@@ -89,13 +89,19 @@ final class AppModel {
     private(set) var notUTF8 = false
     /// 편집기가 문서를 그린 횟수(검사용)
     private(set) var loadedCount = 0
+    /// 메뉴가 화면에 시키는 일. 값이 바뀌면 그 화면이 반응한다
+    private(set) var newFolderRequest = 0
+    private(set) var findRequest = 0
 
     @ObservationIgnored let editor = WebEditor()
     @ObservationIgnored private(set) var store: SessionStore?
     @ObservationIgnored private(set) var session: NoteSession?
     @ObservationIgnored private let editorID = EditorID()
-    @ObservationIgnored private let configPath: String
+    @ObservationIgnored let configPath: String
     @ObservationIgnored private var refreshPending = false
+    @ObservationIgnored private var watcher: VaultWatcher?
+    /// 메인 창을 보인다(닫혀 있으면 다시 연다). AppDelegate가 채운다
+    @ObservationIgnored var showMainWindow: () -> Void = {}
     @ObservationIgnored private var noticeGeneration = 0
     /// 지난 종료를 저장 실패로 멈췄다. 이번에는 그대로 끝낸다 (F-12 R-2)
     @ObservationIgnored var quitForced = false
@@ -111,6 +117,7 @@ final class AppModel {
         editor.onOpened = { [weak self] reasons in self?.unsupported = reasons }
         editor.onLoaded = { [weak self] in self?.loadedCount += 1 }
         editor.onError = { [weak self] m in self?.show(notice: m) }
+        applyAppearance()
         if let v = options.vault {
             open(vault: v, remember: false)
         } else if let v = config.vault, isDir(v) {
@@ -165,6 +172,12 @@ final class AppModel {
         s.onState = { [weak self] in self?.updateFailing() }
         s.onRenamed = { [weak self] old, new in self?.noteRenamed(old, new) }
         store = s
+        // 다른 앱이 바꾼 것을 목록과 열린 메모에 반영한다 (FR-22)
+        watcher?.stop()
+        watcher = VaultWatcher(vault: path) { [weak self] paths in
+            self?.store?.diskChanged(paths.isEmpty ? nil : paths)
+            self?.scheduleRefresh()
+        }
         // 기본 폴더 `메모/`가 없으면 만든다 (F-01 4.1)
         _ = try? createFolderIfMissing(path)
         refresh()
@@ -345,9 +358,66 @@ final class AppModel {
     }
 
     func setSort(_ s: NoteSort) {
-        config.prefs.noteSort = s.rawValue
-        saveConfig()
+        updatePrefs { $0.noteSort = s.rawValue }
     }
+
+    // MARK: 설정 (F-10)
+
+    /// 설정을 바꾸고 저장하고 모든 화면에 바로 적용한다 (Brief 3.7)
+    func updatePrefs(_ change: (inout Prefs) -> Void) {
+        var p = config.prefs
+        change(&p)
+        p = p.normalized()
+        guard p != config.prefs else { return }
+        config.prefs = p
+        saveConfig()
+        applyAppearance()
+        editor.apply(prefs: p)
+    }
+
+    /// 모양: 앱 전체에 건다. 메인 창이 숨어 있어도, 메뉴와 대화상자에도 바로 적용된다 (FR-45)
+    private func applyAppearance() {
+        NSApplication.shared.appearance = switch prefs.theme {
+        case "light": NSAppearance(named: .aqua)
+        case "dark": NSAppearance(named: .darkAqua)
+        default: nil
+        }
+    }
+
+    // MARK: 창 제목, Finder
+
+    /// 창 제목: 지금 고른 사이드바 항목 (F-02 R-4)
+    var windowTitle: String {
+        guard vault != nil else { return "Modoit" }
+        switch selection {
+        case .all: return "모든 메모"
+        case .favorites: return "즐겨찾기"
+        case .folder(let p): return (p as NSString).lastPathComponent
+        }
+    }
+
+    var windowSubtitle: String {
+        vault == nil ? "" : "\(groups.reduce(0) { $0 + $1.notes.count })개의 메모"
+    }
+
+    /// Finder에서 그 파일·폴더를 골라 보인다. nil이면 저장 폴더를 연다. 파일을 쓰지 않는다
+    func revealInFinder(_ rel: String?) {
+        guard let vault else { return }
+        if let rel {
+            NSWorkspace.shared.selectFile(vault + "/" + rel, inFileViewerRootedAtPath: "")
+        } else {
+            NSWorkspace.shared.open(URL(fileURLWithPath: vault))
+        }
+    }
+
+    // MARK: 메뉴 (F-11)
+
+    /// 결과가 메인 창에 보여야 하는 명령은 메인 창을 먼저 보인다 (F-11 R-1)
+    func menuNewNote() { showMainWindow(); newNote() }
+    func menuNewFolder() { showMainWindow(); updatePrefs { $0.sidebarCollapsed = false }; newFolderRequest += 1 }
+    func menuFind() { showMainWindow(); findRequest += 1 }
+    func menuChooseVault() { showMainWindow(); chooseVault() }
+    func menuToggleSidebar() { showMainWindow(); updatePrefs { $0.sidebarCollapsed.toggle() } }
 
     // MARK: 폴더 (F-03)
 

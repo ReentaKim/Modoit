@@ -27,14 +27,19 @@ struct WelcomeView: View {
 
 struct MainView: View {
     @Bindable var model: AppModel
-    @State private var columns = NavigationSplitViewVisibility.all
+
+    /// 사이드바를 가렸는지는 설정에 남긴다 (FR-41 "사이드바 보기·가리기")
+    private var columns: Binding<NavigationSplitViewVisibility> {
+        Binding(get: { model.prefs.sidebarCollapsed ? .doubleColumn : .all },
+                set: { v in model.updatePrefs { $0.sidebarCollapsed = v != .all } })
+    }
 
     var body: some View {
         Group {
             if model.vault == nil {
                 WelcomeView(model: model)
             } else {
-                NavigationSplitView(columnVisibility: $columns) {
+                NavigationSplitView(columnVisibility: columns) {
                     SidebarView(model: model)
                         .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
                 } content: {
@@ -57,7 +62,25 @@ struct MainView: View {
             }
         }
         .animation(.default, value: model.notice)
+        .tint(accentTint(model.prefs.accent))
+        // 창 제목은 앱 이름 대신 지금 고른 항목 (F-02 R-4)
+        .navigationTitle(model.windowTitle)
+        .navigationSubtitle(model.windowSubtitle)
     }
+}
+
+/// 강조 색 (FR-46). 값은 src/app/accent.css의 --accent와 같다(라이트, 다크)
+private let accentHex: [String: (UInt32, UInt32)] = [
+    "yellow": (0xe0a800, 0xf5c518), "orange": (0xf08a00, 0xff9f0a), "red": (0xdc2c22, 0xff453a), "pink": (0xd6245e, 0xff375f),
+    "purple": (0x9b4fd6, 0xbf5af2), "blue": (0x006be8, 0x0a84ff), "green": (0x28a745, 0x30d158), "graphite": (0x8e8e93, 0x98989d),
+]
+
+func accentTint(_ name: String) -> Color {
+    let (light, dark) = accentHex[name] ?? accentHex["yellow"]!
+    func color(_ v: UInt32) -> NSColor {
+        NSColor(srgbRed: CGFloat(v >> 16 & 0xff) / 255, green: CGFloat(v >> 8 & 0xff) / 255, blue: CGFloat(v & 0xff) / 255, alpha: 1)
+    }
+    return Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? color(dark) : color(light) })
 }
 
 func stickyColor(_ name: String?) -> Color {
@@ -72,6 +95,7 @@ func stickyColor(_ name: String?) -> Color {
 
 struct NoteListView: View {
     @Bindable var model: AppModel
+    @State private var searching = false
 
     var body: some View {
         List(selection: Binding(get: { model.selectedNote }, set: { model.selectNote($0) })) {
@@ -88,6 +112,7 @@ struct NoteListView: View {
                             .onDrag { DragPayload.note(n.path).provider }
                             .contextMenu {
                                 Button(n.pinned ? "즐겨찾기에서 해제" : "즐겨찾기에 추가") { model.setFavorite(n.path, !n.pinned) }
+                                Button("Finder에서 보기") { model.revealInFinder(n.path) }
                                 Divider()
                                 Button("휴지통으로", role: .destructive) { model.trash(note: n.path) }
                             }
@@ -97,7 +122,9 @@ struct NoteListView: View {
                 }
             }
         }
-        .searchable(text: $model.query, placement: .toolbar, prompt: "검색")
+        .searchable(text: $model.query, isPresented: $searching, placement: .toolbar, prompt: "검색")
+        // 편집 > 찾기 (⌘F): 검색 칸으로 간다
+        .onChange(of: model.findRequest) { searching = true }
         .toolbar {
             ToolbarItemGroup {
                 Menu {
