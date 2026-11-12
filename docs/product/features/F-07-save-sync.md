@@ -3,7 +3,7 @@
 | 항목 | 내용 |
 |---|---|
 | 담당 | 기획 (검토: 디자인, 개발, QA) |
-| 상태 | **초안** |
+| 상태 | **검토 중** (프로토타입 검토 때 화면과 함께 확정, D-22) |
 | 대상 버전 | v2.0 |
 | 화면 | [프로토타입](../../prototype/index.html) (화면 없음. 안내 막대는 SCR-02-C) |
 
@@ -61,7 +61,7 @@ flowchart TD
 | ID | 무엇을 | 어디서 |
 |---|---|---|
 | A1 | 원자적 쓰기, 세션 수명 | Rust `atomic_write_replaces_and_leaves_no_tmp`, `src/qa/v03Session.test.ts` "release()" |
-| A2 | 입력 중 외부 변경 | `src/qa/sticky.test.tsx` BUG-05 |
+| A2 | 입력 중 외부 변경, 파일 감시 | `src/qa/sticky.test.tsx` BUG-05, v2 `ModoitKitTests` `FR22_watcher_reports_external_change`, `FR22_disk_change_matches_path_across_normalization` |
 | A3 | 병합 | `src/qa/v03Session.test.ts` mergeBodies, "NoteSession 병합 저장", `src/qa/appRace.test.tsx` FR-30 |
 | A4 | 실패 알림·재시도, 사라진 파일 | `src/qa/appRace.test.tsx` NFR-13 / BUG-22, `src/qa/v03Fix.test.tsx` BUG-40 |
 | M1 | 두 창 번갈아 빠르게 입력(한글 포함) | 수동 G-7, G-14 |

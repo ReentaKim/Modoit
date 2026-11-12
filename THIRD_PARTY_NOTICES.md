@@ -24,3 +24,12 @@ Pretendard는 SIL OFL 1.1에 따라 앱과 함께 배포되며, 글꼴 자체를
 | @tiptap/extension-details 3.33.0 | MIT | 토글 블록 |
 | @tiptap/extension-blockquote 3.33.0 | MIT | 인용(`|` 입력 규칙) |
 | @tiptap/extension-text-style 3.33.0 | MIT | extension-details의 peer 의존성 |
+
+## v2.0 추가
+
+| 구성요소 | 라이선스 | 용도 |
+|---|---|---|
+| [Yams](https://github.com/jpsim/Yams) 5.x | MIT | frontmatter(YAML) 읽기 |
+| SF Symbols | Apple 사용 조건 | 화면 안 기호. 앱에 파일을 넣지 않고 시스템이 그린다. 앱 아이콘에는 쓰지 않는다 |
+
+v2.0 앱에는 Tauri, tauri-nspanel, Rust 크레이트가 들어가지 않는다(v0.x에만 해당). 편집기 쪽 구성요소(TipTap, React, marked, Phosphor Icons, Pretendard 등)는 메인 편집기 번들에 그대로 들어간다.

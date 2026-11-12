@@ -239,3 +239,13 @@ describe("토글 Markdown 왕복 (FR-48)", () => {
     expect(md(ed)).toBe(nested);
   });
 });
+
+describe("편집 가능 판정 (FR-43)", () => {
+  it("FR-43 기호만 친 빈 줄(# , 2. , > )은 읽기 전용으로 막지 않는다", async () => {
+    const { unsupportedFeatures } = await import("./editability");
+    for (const md of ["# ", "# 가\n## \n", "가\n#", "1. 가\n2. ", "> 가\n> ", "# \n## \n### "]) {
+      expect(unsupportedFeatures(md), JSON.stringify(md)).toEqual([]);
+    }
+    expect(unsupportedFeatures("<div>x</div>")).toEqual(["HTML"]);
+  });
+});
