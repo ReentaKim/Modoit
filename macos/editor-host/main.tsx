@@ -27,6 +27,7 @@ let composing = false;
 function show(m: LoadMessage) {
   const unsupported = m.forceEditable ? [] : unsupportedFeatures(m.markdown);
   if (m.prefs) applyPrefs(m.prefs);
+  applyTint(m.tint);
   document.body.classList.toggle("compact", m.compact);
   base = m.markdown;
   const doc: Doc = { ...m, key: ++seq, readOnly: unsupported.length > 0 || !!m.viewer };
@@ -36,6 +37,20 @@ function show(m: LoadMessage) {
   // 지원하지 않는 서식이 있으면 읽기 전용으로 열고 이유를 알린다 (FR-43)
   post({ type: "opened", key: doc.key, unsupported });
   if (setDocExternal) setDocExternal(doc);
+}
+
+/** 스티키는 체크·링크 색을 종이 색에 맞춘다. 앱 강조 색(data-accent)보다 앞선다 */
+function applyTint(hex?: string) {
+  const s = document.documentElement.style;
+  if (hex) {
+    s.setProperty("--accent", hex);
+    s.setProperty("--link", hex);
+    s.setProperty("--on-accent", "#ffffff");
+  } else {
+    s.removeProperty("--accent");
+    s.removeProperty("--link");
+    s.removeProperty("--on-accent");
+  }
 }
 
 function applyUpdate(markdown: string) {
@@ -97,6 +112,10 @@ window.modoit = {
     applyPrefs(p);
   },
   // 제목이 바뀌어 파일 이름이 바뀌었다. 이미지 경로 계산에 쓰는 메모 경로를 맞춘다
+  tint: (hex) => {
+    if (current) current.tint = hex;
+    applyTint(hex);
+  },
   moved: (notePath) => {
     if (current) current.notePath = notePath;
   },

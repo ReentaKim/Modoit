@@ -50,7 +50,7 @@ final class WebEditor: NSObject, WKScriptMessageHandler {
     }
 
     func load(markdown: String, notePath: String?, compact: Bool = false, forceEditable: Bool = false, focus: Bool = false,
-              viewer: Bool = false, prefs: Prefs) {
+              viewer: Bool = false, tint: String? = nil, prefs: Prefs) {
         var doc: [String: Any] = [
             "markdown": markdown,
             "notePath": notePath as Any? ?? NSNull(),
@@ -60,6 +60,7 @@ final class WebEditor: NSObject, WKScriptMessageHandler {
             "focus": focus,
             "viewer": viewer,
         ]
+        if let tint { doc["tint"] = tint }
         doc["prefs"] = prefsObject(prefs)
         run("window.modoit.load(\(json(doc)))")
     }
@@ -67,6 +68,11 @@ final class WebEditor: NSObject, WKScriptMessageHandler {
     /// 다른 편집기나 다른 앱이 본문을 바꿨다
     func update(markdown: String) {
         run("window.modoit.update(\(json(["markdown": markdown])))")
+    }
+
+    /// 체크·링크의 강조 색을 스티키 색으로 바꾼다 (F-08 M4)
+    func tint(_ hex: String) {
+        run("window.modoit.tint(\(json(hex)))")
     }
 
     func apply(prefs: Prefs) {

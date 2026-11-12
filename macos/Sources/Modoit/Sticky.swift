@@ -12,6 +12,8 @@ struct StickyPaper {
     let body: NSColor
     let bar: NSColor
     let accent: NSColor
+    /// 웹 화면에 넘기는 강조 색(`#rrggbb`)
+    let accentHex: String
 
     private static func c(_ v: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat(v >> 16 & 0xff) / 255, green: CGFloat(v >> 8 & 0xff) / 255, blue: CGFloat(v & 0xff) / 255, alpha: 1)
@@ -19,11 +21,11 @@ struct StickyPaper {
 
     static func named(_ name: String) -> StickyPaper {
         switch name {
-        case "pink": StickyPaper(body: c(0xffe0ea), bar: c(0xffc4d6), accent: c(0xb0405f))
-        case "blue": StickyPaper(body: c(0xdcefff), bar: c(0xbfe0ff), accent: c(0x2f6fae))
-        case "green": StickyPaper(body: c(0xe1f7d8), bar: c(0xc8efb8), accent: c(0x3d7f2a))
-        case "purple": StickyPaper(body: c(0xece3ff), bar: c(0xdccbff), accent: c(0x6a4bb5))
-        default: StickyPaper(body: c(0xfff6b3), bar: c(0xffe97a), accent: c(0x8a6d00))
+        case "pink": StickyPaper(body: c(0xffe0ea), bar: c(0xffc4d6), accent: c(0xb0405f), accentHex: "#b0405f")
+        case "blue": StickyPaper(body: c(0xdcefff), bar: c(0xbfe0ff), accent: c(0x2f6fae), accentHex: "#2f6fae")
+        case "green": StickyPaper(body: c(0xe1f7d8), bar: c(0xc8efb8), accent: c(0x3d7f2a), accentHex: "#3d7f2a")
+        case "purple": StickyPaper(body: c(0xece3ff), bar: c(0xdccbff), accent: c(0x6a4bb5), accentHex: "#6a4bb5")
+        default: StickyPaper(body: c(0xfff6b3), bar: c(0xffe97a), accent: c(0x8a6d00), accentHex: "#8a6d00")
         }
     }
 }
@@ -259,6 +261,7 @@ final class StickyController: NSObject, NSWindowDelegate {
         root.layer?.backgroundColor = paper.body.cgColor
         bar.layer?.backgroundColor = paper.bar.cgColor
         textView?.accent = paper.accent
+        web?.tint(paper.accentHex)
         pinButton.image = NSImage(systemSymbolName: meta.onTop ? "pin.fill" : "pin", accessibilityDescription: "항상 위에 고정")
         pinButton.contentTintColor = meta.onTop ? paper.accent : NSColor.black.withAlphaComponent(0.55)
     }
@@ -311,7 +314,8 @@ final class StickyController: NSObject, NSWindowDelegate {
             }
             w.onOpen = { [weak self] in self?.openInMain() }
             w.onError = { [weak self] m in self?.manager.notice(m) }
-            w.load(markdown: session.body, notePath: session.path, compact: true, viewer: true, prefs: prefs)
+            w.load(markdown: session.body, notePath: session.path, compact: true, viewer: true,
+                   tint: StickyPaper.named(meta.color).accentHex, prefs: prefs)
             fill(w.webView)
             web = w
         }

@@ -313,6 +313,8 @@ final class SelfTest {
         check("TipTap 스티키에 본문이 보인다", webText.contains("달걀") && webText.contains("code"), webText.debugDescription)
         let compact = await web(c.web, "document.body.classList.contains('compact') + '|' + matchMedia('(prefers-color-scheme: dark)').matches + '|' + document.querySelector('.modoit-editor').isContentEditable")
         check("TipTap 스티키는 좁은 화면·밝은 종이·보기 전용", compact == "true|false|false", compact)
+        let tint = await web(c.web, "getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()")
+        check("TipTap 스티키의 체크 색은 스티키 색", tint == StickyPaper.named(c.meta.color).accentHex, tint)
         // TipTap 스티키의 체크: 편집기가 문서를 다시 쓰지 않고 그 줄의 한 글자만 바뀐다
         let beforeWeb = read(note)
         _ = await web(c.web, "(()=>{const b=[...document.querySelectorAll('li[data-type=\"taskItem\"] input[type=checkbox]')];const t=b.find(x=>x.closest('li').innerText.includes('달걀'));t.click();return b.length})()")

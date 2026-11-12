@@ -8,6 +8,7 @@ declare global {
       load: (doc: LoadMessage) => void;
       update: (m: { markdown: string }) => void;
       prefs: (p: Prefs) => void;
+      tint: (hex: string) => void;
       moved: (notePath: string) => void;
       settleInvoke: (id: number, ok: boolean, value: unknown) => void;
     };
@@ -28,6 +29,8 @@ export interface LoadMessage {
   focus?: boolean;
   /** 보기 전용(스티키). 체크박스를 누르면 `check`, 두 번 누르면 `open`을 보낸다 (D-25) */
   viewer?: boolean;
+  /** 강조 색을 앱 설정 대신 이 색(`#rrggbb`)으로 쓴다. 스티키는 종이 색에 맞춘다 */
+  tint?: string;
   prefs?: Prefs;
 }
 
