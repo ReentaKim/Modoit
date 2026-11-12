@@ -221,6 +221,14 @@ final class SelfTest {
         model.menuFind()
         try? await Task.sleep(for: .milliseconds(500))
         check("찾기: 검색 칸에 커서", main()?.firstResponder is NSTextView, "\(String(describing: main()?.firstResponder))")
+        // 검색어가 있으면 목록이 걸러지고, 새 메모를 만들면 검색어를 지운다 (F-09 R-3)
+        model.selection = .all
+        model.query = "주간"
+        let found = model.groups.flatMap(\.notes).map(\.path)
+        check("검색: 입력하는 대로 걸러진다", found == ["업무/회의/주간.md"], "\(found)")
+        model.menuNewNote()
+        let made = model.selectedNote ?? ""
+        check("새 메모를 만들면 검색어를 지운다", model.query.isEmpty && model.groups.flatMap(\.notes).contains { $0.path == made }, made)
 
         // 7. 휴지통 대신: 종료 전 저장이 남은 입력을 쓴다 (F-12)
         let l5 = model.loadedCount

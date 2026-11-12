@@ -99,3 +99,20 @@ public func filterNotes(_ notes: [NoteMeta], scope: NoteScope, query: String = "
         return n.title.lowercased().contains(q) || n.preview.lowercased().contains(q) || n.path.lowercased().contains(q)
     }
 }
+
+/// 다시 켰을 때 고를 사이드바 항목과 메모 (FR-53).
+/// 적어 둔 메모가 없어졌으면 폴더만, 폴더도 없어졌으면 "모든 메모"다.
+/// `selection`은 "all", "favorites", "folder:<경로>" 가운데 하나다.
+public func resolveLastSelection(selection: String?, note: String?, hasFolder: (String) -> Bool,
+                                 hasNote: (String) -> Bool) -> (scope: NoteScope, note: String?) {
+    var scope = NoteScope.all
+    if selection == "favorites" {
+        scope = .favorites
+    } else if let s = selection, s.hasPrefix("folder:") {
+        let p = String(s.dropFirst(7))
+        if hasFolder(p) { scope = .folder(p) }
+    }
+    guard let note, !note.isEmpty, hasNote(note) else { return (scope, nil) }
+    return (scope, note)
+}
+

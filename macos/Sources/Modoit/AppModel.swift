@@ -608,14 +608,16 @@ final class AppModel {
 
     private func restoreSelection() {
         let saved = UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: String]
-        var sel = SidebarSelection(stored: saved?["selection"])
-        // 폴더가 없어졌으면 "모든 메모" (FR-53)
-        if case .folder(let p) = sel, findNode(tree.folders, p) == nil { sel = .all }
-        selection = sel
-        selectedNote = nil
-        if let note = saved?["note"], !note.isEmpty, tree.notes.contains(where: { $0.path == note }) {
-            selectNote(note)
+        let last = resolveLastSelection(selection: saved?["selection"], note: saved?["note"],
+                                        hasFolder: { findNode(self.tree.folders, $0) != nil },
+                                        hasNote: { p in self.tree.notes.contains { $0.path == p } })
+        selection = switch last.scope {
+        case .all: .all
+        case .favorites: .favorites
+        case .folder(let p): .folder(p)
         }
+        selectedNote = nil
+        if let note = last.note { selectNote(note) }
     }
 
     // MARK: 종료 (F-12)

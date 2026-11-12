@@ -44,5 +44,5 @@
 | A2 | 즐겨찾기 중 입력 보존 | `src/qa/appRace.test.tsx` "고정·꺼내기는 입력 중인 본문을 지우지 않는다" |
 | A3 | 메모 이동과 링크 | Rust `move_note_rewrites_links_across_depth`, `move_note_name_collision_and_angle_links` |
 | A4 | 생성일 유지 | `src/qa/v03App.test.tsx` FR-47, Rust `atomic_write_keeps_creation_time` |
-| A5 | 사이드바 즐겨찾기 범위, 편집기 버튼 토글 | **신규 작성 필요** (Swift) |
+| A5 | 사이드바 즐겨찾기 범위, 즐겨찾기 켜기 | v2 `notes_filter`. 앱 자체 검사 "즐겨찾기 저장", "즐겨찾기 묶음이 맨 위", "사이드바 즐겨찾기는 즐겨찾기만". 편집기 툴바 버튼을 누르는 것은 수동 |
 | M1 | 그룹·정렬 표시 | 수동 |

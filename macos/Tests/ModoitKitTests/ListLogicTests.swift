@@ -124,3 +124,21 @@ private var today: UInt64 { UInt64(utc.startOfDay(for: now).timeIntervalSince197
     #expect(shortDate(today - 3 * d, now: now, calendar: utc) == "2026. 11. 3.")
     #expect(shortDate(today + 14 * 3_600_000 + 5 * 60_000, now: now, calendar: utc) == "오후 2:05")
 }
+
+@Test("FR-53: 다시 켜면 마지막 폴더와 메모. 메모가 없으면 폴더만, 폴더도 없으면 모든 메모") func FR53_restore_last_selection() {
+    let folders: Set<String> = ["업무", "업무/회의"]
+    let notes: Set<String> = ["업무/회의/주간.md"]
+    func r(_ sel: String?, _ note: String?) -> (NoteScope, String?) {
+        let x = resolveLastSelection(selection: sel, note: note, hasFolder: folders.contains, hasNote: notes.contains)
+        return (x.scope, x.note)
+    }
+    #expect(r("folder:업무/회의", "업무/회의/주간.md") == (.folder("업무/회의"), "업무/회의/주간.md"))
+    // 메모가 지워졌거나 옮겨졌다: 폴더만
+    #expect(r("folder:업무/회의", "업무/회의/없음.md") == (.folder("업무/회의"), nil))
+    // 폴더도 없어졌다: 모든 메모
+    #expect(r("folder:지운 폴더", "지운 폴더/메모.md") == (.all, nil))
+    #expect(r("favorites", "") == (.favorites, nil))
+    // 처음 켰거나 저장 폴더를 바꿔 기억이 없다
+    #expect(r(nil, nil) == (.all, nil))
+}
+
