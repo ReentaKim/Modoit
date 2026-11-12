@@ -1,0 +1,49 @@
+#!/bin/bash
+# 편집기 번들 → Swift 빌드 → macos/build/Modoit.app
+#   ./build-app.sh            개발판(debug). 앱 ID가 .dev 라 정식판의 설정·저장 폴더를 건드리지 않는다
+#   ./build-app.sh release    배포판(release, 정식 앱 ID, Apple Silicon·Intel 겸용)
+set -euo pipefail
+cd "$(dirname "$0")"
+MODE="${1:-debug}"
+VERSION="2.0.0"
+if [ "$MODE" = release ]; then ID=io.github.reentakim.modoit; NAME=Modoit; else ID=io.github.reentakim.modoit.dev; NAME="Modoit Dev"; VERSION="$VERSION-dev"; fi
+
+rm -rf Sources/Modoit/Resources/editor/assets Sources/Modoit/Resources/editor/index.html
+../node_modules/.bin/vite build --config editor-host/vite.config.ts --logLevel warn
+# 배포판은 Apple Silicon·Intel 겸용으로 만든다(v0.x와 같게). 개발판은 이 Mac용만 빠르게 만든다
+ARCH=(); [ "$MODE" = release ] && ARCH=(--arch arm64 --arch x86_64)
+swift build -c "$MODE" ${ARCH[@]+"${ARCH[@]}"} --product Modoit
+BIN="$(swift build -c "$MODE" ${ARCH[@]+"${ARCH[@]}"} --show-bin-path)"
+
+# OUT=build/다른이름.app 으로 주면 실행 중인 앱을 건드리지 않고 따로 만든다
+APP="${OUT:-build/Modoit.app}"
+rm -rf "$APP"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp "$BIN/Modoit" "$APP/Contents/MacOS/"
+cp -R Sources/Modoit/Resources/editor "$APP/Contents/Resources/editor"
+# 앱 아이콘은 v0.x와 같은 것을 쓴다
+cp ../src-tauri/icons/icon.icns "$APP/Contents/Resources/AppIcon.icns"
+cat > "$APP/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>$ID</string>
+  <key>CFBundleName</key><string>$NAME</string>
+  <key>CFBundleDisplayName</key><string>$NAME</string>
+  <key>CFBundleExecutable</key><string>Modoit</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleDevelopmentRegion</key><string>ko</string>
+  <key>LSMinimumSystemVersion</key><string>15.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
+  <key>NSHumanReadableCopyright</key><string>MIT License</string>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+</dict>
+</plist>
+PLIST
+codesign --force -s - "$APP" 2>/dev/null
+du -sh "$APP"

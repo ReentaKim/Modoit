@@ -8,7 +8,7 @@
 | 화면 | [프로토타입](../../prototype/index.html) SCR-02-C, SCR-03, SCR-04 |
 
 > **검토 요청**
-> - 개발: 아래 입력 규칙은 메인(TipTap)과 네이티브 스티키 모두 같은 결과를 내야 한다. 네이티브 쪽 비교 테스트를 어떻게 만들지(NFR-21)
+> - 개발: 스티키는 보기 전용이 되어(D-25) 아래 입력 규칙은 메인(TipTap)에만 적용된다
 
 ## 1. 왜
 Notion처럼 키보드에서 손을 떼지 않고 서식을 넣는다(US-2). 그러면서도 파일은 표준 Markdown이다.
@@ -72,7 +72,7 @@ flowchart TD
 ## 5. 검증
 | ID | 무엇을 | 어디서 |
 |---|---|---|
-| A1 | 단축 입력, Tab, 체크박스 | `src/qa/editorFeatures.test.tsx`, `src/qa/logic.test.ts` (v2: 네이티브 스티키용 비교 테스트 **신규**) |
+| A1 | 단축 입력, Tab, 체크박스 | `src/qa/editorFeatures.test.tsx`, `src/qa/logic.test.ts` (스티키는 보기 전용이라 비교 테스트가 필요 없다, D-25) |
 | A2 | 이미지 저장·링크 | `src/qa/editorFeatures.test.tsx` FR-32, `src/qa/logic.test.ts` assetUrl, Rust `save_attachment_checks_and_link`, `rewrite_links_unit` |
 | A3 | `/` 메뉴 | `src/qa/editorFeatures.test.tsx` FR-34 |
 | A4 | 읽기 전용 판정, 열기만 해서는 안 씀 | `src/qa/logic.test.ts` FR-43 / BUG-01, `src/qa/v03Editor.test.tsx` BUG-29, `src/qa/openNoWrite.test.tsx` |

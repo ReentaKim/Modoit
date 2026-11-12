@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["main.tsx", "bridge.ts", "shims", "../../src/vite-env.d.ts"],
+  "references": []
+}

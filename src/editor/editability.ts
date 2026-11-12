@@ -23,6 +23,13 @@ function open(md: string) {
   }
 }
 
+/**
+ * 기호만 쳐 두고 아직 글을 쓰지 않은 줄(`# `, `2. `, `> `)은 왕복하면 사라진다.
+ * 잃는 것이 빈 줄 하나뿐이라 읽기 전용으로 막지 않는다. 스티키에서 제목을 치는 도중에
+ * 메인 창이 읽기 전용으로 바뀌던 문제 (FR-43, F-08)
+ */
+const EMPTY_MARKER = /^[ \t]{0,3}(?:>[ \t]*)*(?:#{1,6}|\d{1,9}[.)]|>)[ \t]*$/gm;
+
 const cache = new Map<string, string[]>();
 
 export function unsupportedFeatures(md: string): string[] {
@@ -31,7 +38,7 @@ export function unsupportedFeatures(md: string): string[] {
   let found = findUnsupported(md);
   if (found.length === 0 && md.trim()) {
     try {
-      const a = open(md);
+      const a = open(md.replace(EMPTY_MARKER, ""));
       if (open(a.md).json !== a.json) found = [ROUND_TRIP_LABEL];
     } catch {
       found = ["해석할 수 없는 Markdown"];

@@ -1,0 +1,64 @@
+/* 편집기 호스트 토큰: src/app/app.css :root 값과 같다 */
+:root {
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", sans-serif;
+  --font-body: var(--font-ui);
+  --font-size: 17px;
+  --text: #1d1d1f;
+  --text-2: #6e6e73;
+  --text-3: #a1a1a6;
+  --hairline: rgba(0, 0, 0, 0.1);
+  --pane: #ffffff;
+  --hover: rgba(0, 0, 0, 0.05);
+  --field: rgba(0, 0, 0, 0.05);
+  --code-bg: rgba(0, 0, 0, 0.05);
+  --check-border: #b9b9be;
+  --danger: #ff3b30;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #f2f2f7;
+    --text-2: #a1a1a6;
+    --text-3: #6e6e73;
+    --hairline: rgba(255, 255, 255, 0.1);
+    --pane: #1e1e1e;
+    --hover: rgba(255, 255, 255, 0.06);
+    --field: rgba(255, 255, 255, 0.08);
+    --code-bg: rgba(255, 255, 255, 0.08);
+    --check-border: #6e6e73;
+    --danger: #ff453a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  /* 창 배경은 Swift가 그린다 */
+  background: transparent;
+  font-family: var(--font-ui);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+.modoit-editor {
+  padding-top: 20px;
+}
+
+body.compact .modoit-editor {
+  padding-top: 8px;
+  color: #1d1d1f;
+  caret-color: #1d1d1f;
+}

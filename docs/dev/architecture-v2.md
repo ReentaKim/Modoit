@@ -22,7 +22,7 @@
 | 앱 셸 | Tauri 2 | SwiftUI + 필요한 곳만 AppKit(NSPanel, NSTextView, 종료 처리) |
 | 코어 로직 | Rust `src-tauri/src` | Swift 패키지 `ModoitCore` (UI 없음, 플랫폼 중립) |
 | 메인 편집기 | TipTap 3 (React) | **같은 TipTap 코드**(`src/editor`)를 WKWebView에 |
-| 스티키 편집기 | TipTap(창마다 하나) | 네이티브(NSTextView). 어려운 서식이 있는 메모만 TipTap([F-08](../product/features/F-08-sticky.md) 3.2) |
+| 스티키 화면 | TipTap(창마다 하나) | 네이티브(NSTextView). 어려운 서식이 있는 메모만 TipTap([F-08](../product/features/F-08-sticky.md) 3.2). 보기 전용이고 체크만 한다(D-25) |
 | 스티키 창 | NSPanel(비공개 API) | NSPanel(공개 API만, NFR-19) |
 | 파일 감시 | notify(FSEvents) | FSEvents |
 | 최소 OS | macOS 13 | macOS 15 (D-09) |
@@ -67,11 +67,13 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 | Vault | 트리·목록, 원자적 쓰기(생성일 유지), 휴지통, 이동 + 링크 재작성, 첨부 저장 | `vault.rs` | cargo |
 | Layout | `.modoit/layout.json` | `layout.rs`, `sidebar.ts` | cargo, vitest |
 | Merge | 줄 단위 3-way 병합, 충돌은 양쪽 보존 | `merge.ts`(node-diff3) | vitest `v03Session.test.ts` |
-| Classify | 읽기 전용 판정, 스티키 편집기 방식 판정 | `markdownSafety.ts`, `editability.ts` | vitest |
+| Classify | 스티키 편집기 방식 판정(허용 목록). 읽기 전용 판정(FR-43)은 옮기지 않는다: TipTap이 실제로 열어 보고 정하므로 편집기 쪽(`markdownSafety.ts`, `editability.ts`)에 그대로 둔다 | 새로 작성 | 새로 작성 |
+| StickyMarkup | 네이티브 스티키의 줄 해석, 체크박스 한 글자 바꾸기 | 새로 작성 | 새로 작성 |
 | Config | `config.json` 읽기·쓰기, 범위 밖 값 보정 | `config.rs`, `prefs.ts` | cargo |
 
 - 옮긴 수는 cargo 45개 + 순수 로직 vitest다. 스파이크에서 13개를 이미 옮겨 통과했다.
-- 주의: Swift는 `\r\n`을 글자 하나로 센다. 줄 단위 코드는 옮길 때마다 테스트로 확인한다(스파이크에서 발견).
+- 주의: Swift는 `\r\n`을 글자 하나로 세고, `==`는 한글의 NFC와 NFD를 같다고 본다. 그래서 코어의 글자 처리는 유니코드 스칼라와 UTF-8 바이트 단위로 한다(`Text.swift`).
+- 주의: 파일 이름의 바이트를 보존한다 → V2-13.
 - TipTap 편집기 자체의 테스트(`src/editor/editor.test.ts`, `src/qa/*Editor*`)는 옮기지 않는다. 편집기 코드가 그대로이므로 vitest로 계속 돌린다.
 
 ### 3.2 편집 세션 — 한 메모에 하나 (V2-09)
@@ -81,20 +83,26 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
  StickyPanel의 편집기 ───┘        ▲
                                   └── 파일 감시: 다른 앱이 A.md를 바꿈 → 3-way 병합
 ```
-- `NoteSession`은 본문(Markdown 문자열), 디스크와 같다고 알던 본문(base), 저장 상태를 가진다.
+- `NoteSession`(`ModoitKit`)은 본문(Markdown 문자열), 디스크와 같다고 알던 본문(base), 저장 상태를 가진다.
 - 메인 창과 스티키가 같은 메모를 열면 **같은 세션**에 붙는다. 한쪽이 고치면 세션이 다른 쪽에 바로 알린다. 파일을 거치지 않는다.
 - 3-way 병합은 이제 두 경우에만 쓴다: 다른 앱이 파일을 바꿨을 때, 그리고 TipTap이 보낸 본문에 그 사이 네이티브 쪽 입력이 빠져 있을 때.
 - 한글 조합 중인 편집기에는 조합이 끝난 뒤 반영한다(NFR-20, F-07 R-4).
 - 저장 규칙(0.5초, 즉시 저장 시점, 3초 재시도, 사라진 파일 다시 만들기)은 [Brief 3.2](../product/brief.md)와 [F-07](../product/features/F-07-save-sync.md) 그대로다.
 
 ### 3.3 네이티브 스티키 편집기 (V2-10)
+> **2026-11-11 변경(D-25):** 스티키는 보기 전용이 됐다. 아래에서 입력에 관한 항목(단축 입력, 한글 조합, 편집 규칙)은 쓰지 않는다. "원문 그대로 + 화면만 꾸밈"과 체크박스 한 글자 바꾸기, 방식 판정은 그대로다. TipTap 스티키의 체크도 편집기가 문서를 다시 쓰지 않고 Swift가 원문의 그 줄만 바꾼다.
+
 - 저장하는 글자 = 화면의 글자다. `NSTextView`의 내용이 곧 Markdown 원문이고, 서식 기호(`- [ ] `, `**`, `# `)는 **숨기거나 그림으로 바꿔 보이게만** 한다.
 - 그래서 "고친 줄만 다시 쓴다"(F-08 R-9, NFR-21)가 구조에서 저절로 지켜진다. 고치지 않은 줄은 한 글자도 바뀌지 않는다.
 - 체크박스는 누를 수 있는 그림으로 그리고, 누르면 원문의 `[ ]` ↔ `[x]` 한 글자만 바꾼다.
 - 단축 입력(`- `, `[] `, `# ` 등)은 메인 편집기와 **같은 Markdown 결과**를 내야 한다(F-06 R-1). 비교 테스트를 만든다(F-08 A6).
 - 한글 조합은 NSTextView가 처리한다. 꾸미기(스타일 갱신)는 조합 중인 범위를 건드리지 않는다.
-- 편집기 방식 판정은 `ModoitCore.Classify`가 원문만 보고 한다. 웹 화면을 띄우지 않고 정한다.
-- **아직 시험하지 않았다.** 스파이크의 네이티브 스티키는 원문을 꾸밈 없이 보여 주기만 했다. 기호 숨기기, 체크박스, 목록 들여쓰기, 한글 조합이 함께 잘 되는지가 v2에서 가장 큰 기술 위험이다 → V2-11.
+- 편집기 방식 판정은 `ModoitCore.Classify`가 원문만 보고 한다. 웹 화면을 띄우지 않고 정한다. **허용 목록 방식**이다: 네이티브가 다룰 수 있다고 확인한 줄 모양만 통과시키고, 조금이라도 다르면 TipTap으로 연다.
+- 줄 해석과 편집 규칙(Enter, 체크, 들여쓰기, 단축 입력)은 `ModoitCore.StickyMarkup`에 UI 없이 둔다. 화면 코드는 그 결과를 `NSTextView`에 입히기만 한다.
+- **2차 스파이크로 확인했다(2026-11-10, [결과](../../spike/sticky-editor/README.md)).** 꾸밈, 편집 규칙, 바이트 보존, 한글 조합 재현이 되고, 메모리는 스티키 1개당 약 2.2 MB다. 구현 때 지킬 것 두 가지:
+  - 꾸밈은 편집이 끝난 뒤에 입힌다(편집 처리 도중에 속성을 바꾸면 커서가 튄다).
+  - 조합 중에는 본문을 바꾸지 않는다. 다른 쪽의 변경은 조합이 끝난 뒤 병합해 반영한다.
+- 실제 한글 입력기로 치는 확인은 수동이다([manual-checks](../qa/manual-checks.md) SP-03).
 
 ### 3.4 TipTap 편집기 브리지
 - `src/editor/*`는 고치지 않는다. Vite 진입점을 하나 더 두어 편집기만 번들한다(스파이크 `spike/editor-host`를 제품 코드로 옮긴다).
@@ -107,7 +115,7 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 |---|---|---|
 | Swift → JS | `load` | `{ markdown, notePath, vault, compact, readOnly, theme, accent, font }` |
 | Swift → JS | `update` | `{ markdown }` 세션 본문이 다른 쪽에서 바뀜. 조합 중이면 편집기가 미뤘다가 반영 |
-| JS → Swift | `ready` | 편집기 준비 완료(NFR-18 측정 기준) |
+| JS → Swift | `ready` | `{ unsupported: [서식 이름] }` 편집기 준비 완료(NFR-18 측정 기준). 지원하지 않는 서식이 있으면 읽기 전용 안내를 띄운다(FR-43) |
 | JS → Swift | `change` | `{ markdown, base }` 사용자 변경만. `base`는 편집기가 마지막으로 받은 본문 |
 | JS → Swift | `saveAttachment` | `{ id, notePath, fileName, dataBase64 }` → `{ id, result \| error }` |
 
@@ -124,13 +132,14 @@ iOS는 고려하지 않는다(D-03). 다만 `ModoitCore`에는 AppKit을 넣지 
 ## 4. 저장소 구성 (V2-07)
 ```
 macos/                     ← v2 제품 코드 (새로 만듦)
-  Package.swift            ModoitCore(라이브러리) + Modoit(앱) + 테스트
-  Sources/ModoitCore/
-  Sources/Modoit/          화면, 앱 상태, 편집기 2종, Resources/editor(빌드 산출물)
+  Package.swift            ModoitCore + ModoitKit(라이브러리) + Modoit(앱) + 테스트
+  Sources/ModoitCore/      파일·규칙. Foundation만 쓴다
+  Sources/ModoitKit/       화면 없는 앱 로직: 편집 세션, 저장, 스티키 관리
+  Sources/Modoit/          화면(SwiftUI·AppKit), 편집기 2종, Resources/editor(빌드 산출물)
   Tests/ModoitCoreTests/   옮긴 cargo·vitest 케이스
-  Tests/ModoitTests/       세션·스티키 관리 등 화면 없는 앱 로직
+  Tests/ModoitKitTests/    세션·스티키 관리 테스트(임시 폴더에 실제 파일)
   editor-host/             TipTap 번들 진입점 (src/editor를 가져다 씀)
-  build-app.sh             .app / .dmg 만들기
+  build-app.sh             .app 만들기 (기본은 개발판 `io.github.reentakim.modoit.dev`, `release`를 주면 정식 앱 ID)
 src/editor/                TipTap 편집기 (v0.x와 v2가 함께 씀)
 src/, src-tauri/           v0.x 앱. v2.0 출시 때까지 유지, 출시 뒤 편집기만 남기고 정리
 spike/                     스파이크. 측정 스크립트는 M8에서 다시 씀
@@ -148,6 +157,8 @@ v0.x의 ADR 번호와 겹치지 않게 `V2-`를 붙인다.
 | V2-04 | 스티키는 네이티브 편집기, 어려운 서식만 TipTap | 메모리 이득은 네이티브에서만 난다(스파이크: 1개당 5 MB vs 75~100 MB). D-04, D-12 |
 | V2-05 | NSPanel은 공개 API만 | NFR-19 |
 | V2-06 | 저장 형식·폴더 구조·frontmatter·layout.json·config.json은 v0.x와 같다 | Brief 3.6. 변환 없이 이어 쓰고, 되돌아갈 수도 있다 |
+| V2-14 | 세션 저장은 메인 스레드에서 한 번에 끝낸다(동기). 폴더 전체 목록 읽기만 백그라운드로 보낸다 (2026-11-10) | 메모 파일은 작아 저장이 수 ms다. 저장 도중에 입력이 끼어드는 경합(v0.x BUG-39)이 구조적으로 생기지 않고, 종료 전 저장(F-12)도 기다림 없이 끝난다 |
+| V2-13 | 코어는 경로를 `String`으로 다루고, 파일·폴더를 만들거나 이름을 바꿀 때는 POSIX 호출(`open`, `mkdir`, `rename`)을 쓴다. `URL`·`FileManager`의 만들기 API를 쓰지 않는다 (2026-11-10, M5에서 발견) | Foundation의 만들기 API는 한글 이름을 자모로 풀어(NFD) 디스크에 만든다. v0.x(Rust)는 받은 글자 그대로(NFC) 만들고 바이트로 비교한다. 섞이면 `layout.json`의 폴더 순서가 v0.x에서 맞지 않는다(NFR-16). 테스트 `created_names_keep_nfc_bytes` |
 
 ### 5.2 2026-11-10에 정한 것 (D-23)
 | # | 결정 | 이유 | 다른 선택지와 버린 이유 |
@@ -162,12 +173,13 @@ v0.x의 ADR 번호와 겹치지 않게 `V2-`를 붙인다.
 ## 6. 검증 방법
 | 대상 | 방법 |
 |---|---|
-| 코어 규칙 | `swift test --package-path macos` — cargo·vitest에서 옮긴 케이스. 이름에 요구사항·결함 ID 유지 |
+| 코어 규칙 | `swift test --package-path macos` — cargo·vitest에서 옮긴 케이스. 이름에 요구사항·결함 ID 유지. 병합은 v0.x 코드가 낸 결과 400건과 대조(`Fixtures/merge-v0x.json`) |
 | 세션·스티키 관리 | 화면 없이 `ModoitTests`에서(가짜 파일 시스템이 아니라 임시 폴더) |
 | TipTap 편집기 | 기존 vitest 그대로 |
 | 두 편집기의 결과 일치 | 같은 입력 → 네이티브와 TipTap의 Markdown 비교(F-08 A6), 번갈아 고친 뒤 바이트 비교(NFR-21) |
 | v0.x 호환 | v0.3 QA 데이터 폴더를 v2로 열고 저장한 뒤 v0.4로 다시 열기(NFR-16) |
-| 메모리·실행 시간 | `spike/bench.sh` 방식, 대표 Mac에서(Brief 2.2) |
+| 메모리·실행 시간 | `macos/bench.sh [release]`(임시 저장 폴더 사용). 결과는 8장 |
+| 앱 전체(화면 → 편집기 → 파일) | `macos/build-app.sh` 뒤 `open -n -W macos/build/Modoit.app --args --config-dir <임시> --vault <임시 폴더> --selftest 1 --log <파일>`. 실제 앱에서 메모를 고르고 편집기에 글자를 넣어 파일에 저장되는지 본다. 개발판은 앱 ID가 `.dev`라 정식판의 설정을 건드리지 않는다 |
 | 화면·한글 입력·종료 | 수동 확인([manual-checks](../qa/manual-checks.md)) |
 
 ## 7. 스파이크 결과 요약 (2026-11-09)
@@ -178,4 +190,31 @@ v0.x의 ADR 번호와 겹치지 않게 `V2-`를 붙인다.
 | 준비 시간 | 재지 못함 | 804 ms | 509 ms |
 
 - 확인한 것: 메모리 이득은 네이티브 스티키에서만 난다. TipTap이 WKWebView에서 v0.3처럼 그려지고, 열기만 해서는 파일을 쓰지 않는다. 코어 테스트 13개가 Swift에서 통과한다.
-- 확인하지 못한 것: 입력 뒤 저장되는 Markdown이 v0.3과 같은지(수동 확인 SP-01), 한글 입력(SP-02), 꾸밈이 있는 네이티브 편집기(V2-11).
+- 확인하지 못한 것: 입력 뒤 저장되는 Markdown이 v0.3과 같은지(수동 확인 SP-01), 한글 입력(SP-02).
+- 꾸밈이 있는 네이티브 편집기는 2차 스파이크로 확인했다(3.3).
+
+## 8. 실제 앱 측정 (2026-11-12, NFR-17, NFR-18)
+`macos/bench.sh release`로 배포판(release 빌드, Apple Silicon·Intel 겸용)을 쟀다. 기기는 대표 Mac(D-20)이다. 합계는 앱 프로세스와 실행 뒤 새로 생긴 WebKit 프로세스의 합이다.
+
+### 8.1 메모리
+| 상태 | 앱 | WebKit | 합계 | 목표(NFR-17) | 판정 |
+|---|---|---|---|---|---|
+| 메인 창만(스티키 0개) | 46.6 MB | 77.3 MB | 123.9 MB | 176 MB 이하 | 충족 |
+| 네이티브 스티키 5개 | 60.7 MB | 72.6 MB | 133.3 MB | | |
+| 네이티브 스티키 10개 | 71.4 MB | 84.8 MB | 156.2 MB | 300 MB 이하 | 충족 |
+| TipTap 스티키 10개(표가 든 메모) | 61.7 MB | 908.9 MB | 970.6 MB | 대상 아님 | Brief R-6 |
+
+- 잴 때마다 10 MB쯤 오르내린다(같은 날 앞선 측정: 132.5 / 137.3 / 146.5 / 943.6 MB). 개발판(debug)도 비슷하다.
+- 네이티브 스티키 1개당 약 1~3 MB다(목표 20 MB 이하).
+- TipTap 스티키는 1개당 약 80~85 MB다. 표·토글·코드 블록·이미지가 든 메모를 많이 꺼내면 목표를 넘는다(Brief R-6, H-2로 실제 비율을 확인한다).
+
+### 8.2 실행 시간
+네이티브 스티키 10개가 떠 있고 메모 하나를 연 상태로 실행해, 준비 신호(`--ready-file`: 메인 편집기가 메모를 그렸고 스티키 복원이 끝난 때)까지 쟀다.
+
+| 측정 | 값 | 목표(NFR-18) | 판정 |
+|---|---|---|---|
+| 12회 연속 | 0.67~0.73초, 중앙값 0.69초 | 1초 이하 | 충족 |
+
+- 방금 실행했던 앱을 다시 켠 값이다(디스크 캐시가 데워진 상태). 재부팅 직후 첫 실행은 재지 않았다.
+- 기기가 바쁠 때(메모리 측정 4건을 돌린 직후)는 3회 중 0.72 / 1.06 / 0.94초처럼 1초를 넘는 값도 나왔다. 여유는 약 0.3초다.
+- TipTap 스티키가 문서를 다 그리는 때는 준비 신호에 넣지 않았다.

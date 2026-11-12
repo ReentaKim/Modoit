@@ -28,3 +28,12 @@ spike/build
 spike/macos/.build
 spike/macos/.swiftpm
 spike/macos/Sources/ModoitSpike/Resources/editor
+
+# v2 빌드 산출물
+macos/.build
+macos/.swiftpm
+macos/build
+macos/Sources/Modoit/Resources/editor/*
+!macos/Sources/Modoit/Resources/editor/.gitkeep
+spike/sticky-editor/.build
+spike/sticky-editor/.swiftpm

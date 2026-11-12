@@ -152,7 +152,7 @@ def section(text: str, number: int) -> str:
 
 def tests_index() -> tuple[str, dict[str, str]]:
     rust = "\n".join(read(p) for p in (ROOT / "src-tauri" / "src").rglob("*.rs"))
-    swift_dir = ROOT / "spike" / "macos" / "Tests"
+    swift_dir = ROOT / "macos" / "Tests"
     swift = "\n".join(read(p) for p in swift_dir.rglob("*.swift")) if swift_dir.exists() else ""
     return rust + "\n" + swift, {}
 

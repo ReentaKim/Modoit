@@ -8,11 +8,10 @@
 
 익숙한 3단 화면 · Notion처럼 빠른 단축 입력 · 계정·클라우드·추적 없음
 
-![version](https://img.shields.io/badge/version-0.3.0-6e6e73?style=flat-square)
+![version](https://img.shields.io/badge/version-2.0.0-6e6e73?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)
 ![platform](https://img.shields.io/badge/platform-macOS-1d1d1f?style=flat-square&logo=apple&logoColor=white)
-![tauri](https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&logo=tauri&logoColor=white)
-![react](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=black)
+![swift](https://img.shields.io/badge/Swift-6-f05138?style=flat-square&logo=swift&logoColor=white)
 ![format](https://img.shields.io/badge/저장-Markdown-000000?style=flat-square&logo=markdown&logoColor=white)
 
 <br/>
@@ -55,7 +54,7 @@ Modoit은 Apple 공증을 받지 않은 개인 프로젝트입니다. 소스가 
 
 </details>
 
-macOS 13 Ventura 이상, Apple Silicon·Intel 모두 지원합니다. 첫 실행 때 메모를 저장할 폴더를 고릅니다.
+macOS 15 Sequoia 이상, Apple Silicon·Intel 모두 지원합니다(Intel Mac에서는 아직 실행해 보지 못했습니다). v0.x를 쓰던 분은 그대로 덮어 설치하면 저장 폴더와 설정을 이어 씁니다. 첫 실행 때 메모를 저장할 폴더를 고릅니다.
 
 ## ✦ 무엇이 다른가요
 
@@ -66,9 +65,10 @@ macOS 13 Ventura 이상, Apple Silicon·Intel 모두 지원합니다. 첫 실행
 ### 📌 메모 = 스티키
 메모를 따로 옮겨 적지 않고 **그 메모 자체를** 바탕화면에 꺼내 둡니다.
 - ⌘⇧S로 꺼내기 ↔ 다시 넣기
-- 메인 창과 스티키 어디서 고쳐도 같은 파일
+- 스티키에서는 **보고 체크만**, 글은 두 번 눌러 메인 창에서
 - 색, 위치, 크기를 기억해 같은 자리에 다시 뜸
 - 다른 앱을 쓰는 중에도 포커스를 뺏지 않는 macOS 패널
+- 10개를 띄워도 가벼움 (메인 창 포함 약 150 MB)
 
 </td>
 <td width="50%" valign="top">
@@ -122,9 +122,9 @@ macOS 13 Ventura 이상, Apple Silicon·Intel 모두 지원합니다. 첫 실행
 | 단축키 | 동작 |
 |---|---|
 | ⌘N | 새 메모 |
-| ⌘⇧N | 새 메모를 바로 스티키로 |
+| ⌘⇧N | 새 메모를 스티키로 띄우고 메인 창에서 쓰기 |
 | ⌘⇧S | 스티키로 꺼내기 ↔ 다시 넣기 |
-| ⌘⇧P | 메모 고정 |
+| ⌘⇧P | 즐겨찾기 |
 | ⌥⌘N | 새 폴더 |
 | ⌥⌘S | 사이드바 보기·가리기 |
 | ⌘F | 검색 |
@@ -148,7 +148,7 @@ macOS 13 Ventura 이상, Apple Silicon·Intel 모두 지원합니다. 첫 실행
 └── .modoit/layout.json     ← 사이드바 순서·구분선 (앱 전용)
 ```
 
-고정하거나 스티키로 꺼낸 메모에만 맨 위에 짧은 frontmatter가 붙습니다. 사용자가 원래 써 둔 키는 건드리지 않습니다.
+즐겨찾기에 넣거나 스티키로 꺼낸 메모에만 맨 위에 짧은 frontmatter가 붙습니다. 사용자가 원래 써 둔 키는 건드리지 않습니다.
 
 ```yaml
 ---
@@ -161,20 +161,20 @@ sticky: {color: yellow, x: 1250, y: 140, w: 280, h: 280, onTop: false, open: tru
 
 ## 🛠 직접 빌드하기
 
-**필요한 것**: macOS, [Node.js](https://nodejs.org) 20 이상, [Rust](https://rustup.rs) (stable)
+**필요한 것**: macOS 15 이상, Xcode 16 이상(Swift 6), [Node.js](https://nodejs.org) 20 이상
 
 ```bash
 npm install
-npm run tauri dev      # 개발 모드로 실행
-npm run tauri build    # .app / .dmg 만들기 → src-tauri/target/release/bundle/
+macos/build-app.sh && open macos/build/Modoit.app   # 개발판 (앱 ID가 .dev라 정식판 설정을 건드리지 않음)
+macos/make-dmg.sh                                   # 배포판 dmg → macos/build/Modoit-x.y.z.dmg
 ```
 
 테스트
 
 ```bash
-npx tsc --noEmit                      # 타입 검사
-npx vitest run                        # 편집기·저장·화면 동작 (약 40초)
-cd src-tauri && cargo test --lib      # 파일·폴더·frontmatter 처리
+swift test --package-path macos       # 파일·폴더·frontmatter·목록 처리
+macos/selftest.sh                     # 실제 앱을 임시 폴더에서 조작해 검사
+npx tsc --noEmit && npx vitest run    # 편집기 (TipTap)
 ```
 
 <details>
@@ -184,24 +184,21 @@ cd src-tauri && cargo test --lib      # 파일·폴더·frontmatter 처리
 
 | 영역 | 사용 |
 |---|---|
-| 앱 껍데기 | Tauri 2 (Rust), macOS 전용 — 스티키는 NSPanel(`tauri-nspanel`) |
-| 화면 | React 19 + TypeScript + Vite |
-| 편집기 | TipTap 3 + `@tiptap/markdown` |
-| 아이콘 · 글꼴 | Phosphor Icons, Pretendard |
-| 파일 처리 | 원자적 쓰기, 파일 감시(`notify`), 휴지통 이동(`trash`) |
+| 앱 | Swift 6, SwiftUI + AppKit, macOS 전용 — 스티키는 NSPanel |
+| 메인 편집기 | TipTap 3 + `@tiptap/markdown` (WKWebView 안) |
+| 스티키 | NSTextView로 Markdown 원문을 그대로 그림. 표·코드 블록·이미지가 든 메모만 TipTap |
+| 기호 · 글꼴 | SF Symbols, Pretendard |
+| 파일 처리 | 원자적 쓰기, 파일 감시(FSEvents), 휴지통 이동. 외부 라이브러리는 [Yams](https://github.com/jpsim/Yams) 하나 |
 
 ```text
-src/
-├── app/       메인 창 — 사이드바, 메모 목록, 편집기 영역, 설정
-├── sticky/    스티키 창
-├── editor/    TipTap 확장 — 단축 입력, / 메뉴, 토글, 이미지
-├── lib/       저장 세션·병합, frontmatter, Markdown 안전성 검사
-└── qa/        QA 회귀 테스트
-src-tauri/src/
-├── vault.rs   저장 폴더 — 목록, 읽기·쓰기, 이동과 링크 재작성
-├── sticky.rs  스티키 패널
-├── layout.rs  사이드바 순서
-└── lib.rs     명령, 메뉴 막대, 창 이벤트
+macos/
+├── Sources/ModoitCore/   저장 폴더 — 목록, 읽기·쓰기, 이동과 링크 재작성, frontmatter (Foundation만)
+├── Sources/ModoitKit/    화면 없는 앱 로직 — 편집 세션, 목록 묶기·정렬
+├── Sources/Modoit/       화면 — 메인 창, 스티키, 설정, 메뉴
+├── editor-host/          TipTap 편집기를 WKWebView에 싣는 연결부
+└── Tests/
+src/editor/, src/lib/     TipTap 확장과 Markdown 안전성 검사 (v0.x와 같이 씀)
+src/, src-tauri/          v0.x(Tauri) 앱
 ```
 
 </details>
@@ -222,7 +219,8 @@ AI가 초안을 쓰고 사람이 검토·결정하는 방식으로, 필요한 �
 
 | 버전 | 내용 |
 |---|---|
-| **v0.4** | 어떻게 종료해도(Dock 종료·로그아웃 포함) 마지막 입력을 저장 |
+| **v2.0** | Swift 네이티브로 다시 만듦: 가벼운 스티키(보기 전용), macOS 기본 화면, 즐겨찾기, 다시 켜면 보던 메모 그대로 — [릴리스 노트](docs/releases/v2.0.md) |
+| v0.4 | 어떻게 종료해도(Dock 종료·로그아웃 포함) 마지막 입력을 저장 |
 | v0.3 | 다크 모드, 강조 색, 만든 날·고친 날, `>` 토글, `\|` 인용, 화살표 변환, 두 창 동시 편집 병합 |
 | v0.2 | 폴더 계층·구분선, 메모를 스티키로 꺼내기, 이미지·표, `/` 메뉴, 고정, 글꼴 설정, 메뉴 막대 |
 | v0.1 | 3단 메모 화면, 스티키, Notion식 단축 입력, 저장 폴더 선택 |
