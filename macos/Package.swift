@@ -27,6 +27,8 @@ let package = Package(
             dependencies: ["ModoitKit", "ModoitCore"],
             resources: [.copy("Resources/editor")]
         ),
+        // H-2 측정 도구: 저장 폴더를 읽기만 해서 TipTap으로 그릴 메모의 비율을 센다
+        .executableTarget(name: "modoit-stats", dependencies: ["ModoitCore"], path: "Sources/ModoitStats"),
         .testTarget(
             name: "ModoitCoreTests",
             dependencies: ["ModoitCore"],
