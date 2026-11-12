@@ -39,6 +39,8 @@ enum SidebarSelection: Hashable {
 ///   --config-dir <폴더>   config.json을 둘 곳. 없으면 앱 설정 폴더
 ///   --vault <폴더>        저장 폴더(설정에 저장하지 않는다)
 ///   --selftest 1          화면을 실제로 조작해 검사하고 끝낸다. --log <파일>, --snapshot <png>
+///   --note <경로>         시작할 때 이 메모를 연다(측정용, 저장 폴더 기준 경로)
+///   --ready-file <파일>   메인 편집기가 메모를 그리고 스티키를 다 띄운 시각(유닉스 초)을 한 번 적는다 (NFR-18 측정)
 struct LaunchOptions {
     var configDir: String?
     var vault: String?
@@ -47,6 +49,8 @@ struct LaunchOptions {
     var log: String?
     /// 선택이 바뀔 때마다 적는 파일(검사용)
     var stateFile: String?
+    var note: String?
+    var readyFile: String?
 
     static let current = parse(CommandLine.arguments)
 
@@ -62,6 +66,8 @@ struct LaunchOptions {
             case "--snapshot": o.snapshot = it.next()
             case "--log": o.log = it.next()
             case "--state-file": o.stateFile = it.next()
+            case "--note": o.note = it.next()
+            case "--ready-file": o.readyFile = it.next()
             default: break
             }
         }
@@ -116,7 +122,7 @@ final class AppModel {
         config = Config.load(from: configPath)
         editor.onChange = { [weak self] md, base in self?.editorChanged(md, base: base) }
         editor.onOpened = { [weak self] reasons in self?.unsupported = reasons }
-        editor.onLoaded = { [weak self] in self?.loadedCount += 1 }
+        editor.onLoaded = { [weak self] in self?.loadedCount += 1; self?.reportReady() }
         editor.onError = { [weak self] m in self?.show(notice: m) }
         stickies.model = self
         applyAppearance()
@@ -189,7 +195,11 @@ final class AppModel {
         refresh()
         restoreSelection()
         // 창을 만드는 일은 앱이 뜬 뒤로 미룬다
-        DispatchQueue.main.async { [weak self] in self?.stickies.restore() }
+        DispatchQueue.main.async { [weak self] in
+            self?.stickies.restore()
+            self?.stickiesRestored = true
+            self?.reportReady()
+        }
     }
 
     private func createFolderIfMissing(_ vault: String) throws {
@@ -617,7 +627,17 @@ final class AppModel {
         case .folder(let p): .folder(p)
         }
         selectedNote = nil
-        if let note = last.note { selectNote(note) }
+        if let note = LaunchOptions.current.note ?? last.note { selectNote(note) }
+    }
+
+    @ObservationIgnored private var stickiesRestored = false
+    @ObservationIgnored private var readyReported = false
+
+    /// 측정용 준비 신호: 메인 편집기가 메모를 그렸고 스티키 복원이 끝났을 때 한 번 (NFR-18)
+    private func reportReady() {
+        guard let f = LaunchOptions.current.readyFile, !readyReported, loadedCount > 0, stickiesRestored else { return }
+        readyReported = true
+        try? String(Date().timeIntervalSince1970).write(toFile: f, atomically: true, encoding: .utf8)
     }
 
     // MARK: 종료 (F-12)
